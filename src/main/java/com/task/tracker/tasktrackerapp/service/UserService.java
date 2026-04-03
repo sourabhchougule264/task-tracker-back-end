@@ -23,18 +23,38 @@ public class UserService {
      */
     @Transactional
     public UserDTO syncUserFromCognito(String username, String email, String cognitoSub) {
-        User user = userRepository.findByUsername(username)
-            .orElse(User.builder()
-                .username(username)
-                .email(email)
-                .cognitoSub(cognitoSub)
-                .isActive(true)
-                .build());
-
-        // Update if exists
-        user.setCognitoSub(cognitoSub);
-        user.setEmail(email);
-        user.setIsActive(true);
+        User user = null;
+        
+        // First, try to find by cognitoSub (most reliable identifier)
+        if (cognitoSub != null && !cognitoSub.isEmpty()) {
+            user = userRepository.findByCognitoSub(cognitoSub).orElse(null);
+        }
+        
+        // If not found by cognitoSub, try by email (to handle existing users)
+        if (user == null && email != null && !email.isEmpty()) {
+            user = userRepository.findByEmail(email).orElse(null);
+        }
+        
+        // If still not found, try by username
+        if (user == null && username != null && !username.isEmpty()) {
+            user = userRepository.findByUsername(username).orElse(null);
+        }
+        
+        // If user exists, update their information
+        if (user != null) {
+            user.setUsername(username);
+            user.setEmail(email);
+            user.setCognitoSub(cognitoSub);
+            user.setIsActive(true);
+        } else {
+            // Create new user if doesn't exist
+            user = User.builder()
+                    .username(username)
+                    .email(email)
+                    .cognitoSub(cognitoSub)
+                    .isActive(true)
+                    .build();
+        }
 
         user = userRepository.save(user);
         return convertToDTO(user);

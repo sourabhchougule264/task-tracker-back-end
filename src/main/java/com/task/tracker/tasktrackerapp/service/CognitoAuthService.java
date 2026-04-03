@@ -1,5 +1,7 @@
 package com.task.tracker.tasktrackerapp.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.task.tracker.tasktrackerapp.dto.AuthResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +26,8 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 public class CognitoAuthService {
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${aws.cognito.userPoolId}")
     private String userPoolId;
@@ -367,17 +371,37 @@ public class CognitoAuthService {
             // Decode the payload (second part of JWT)
             String payload = new String(Base64.getDecoder().decode(tokenParts[1]), StandardCharsets.UTF_8);
             
-            // Parse JSON manually to extract fields
-            String username = extractJsonValue(payload, "cognito:username");
-            String email = extractJsonValue(payload, "email");
-            String sub = extractJsonValue(payload, "sub");
+            // Parse JSON using Jackson ObjectMapper
+            JsonNode jsonNode = objectMapper.readTree(payload);
+            
+            // Extract fields - try both standard and Cognito-specific field names
+            String username = null;
+            String email = null;
+            String sub = null;
+            
+            // Try cognito:username first, then fall back to username
+            if (jsonNode.has("cognito:username")) {
+                username = jsonNode.get("cognito:username").asText();
+            } else if (jsonNode.has("username")) {
+                username = jsonNode.get("username").asText();
+            }
+            
+            // Extract email
+            if (jsonNode.has("email")) {
+                email = jsonNode.get("email").asText();
+            }
+            
+            // Extract sub (Cognito unique identifier)
+            if (jsonNode.has("sub")) {
+                sub = jsonNode.get("sub").asText();
+            }
 
             if (username != null && email != null) {
                 log.info("Syncing user {} to database with sub: {}", username, sub);
                 userService.syncUserFromCognito(username, email, sub);
                 log.info("User {} synced to database successfully", username);
             } else {
-                log.warn("Could not extract username or email from token for sync");
+                log.warn("Could not extract username or email from token for sync. Username: {}, Email: {}", username, email);
             }
 
         } catch (Exception e) {
@@ -386,33 +410,6 @@ public class CognitoAuthService {
         }
     }
 
-    /**
-     * Simple JSON value extractor (without using external JSON library)
-     */
-    private String extractJsonValue(String json, String key) {
-        String searchKey = "\"" + key + "\"";
-        int keyIndex = json.indexOf(searchKey);
-        if (keyIndex == -1) {
-            return null;
-        }
-        
-        int colonIndex = json.indexOf(":", keyIndex);
-        if (colonIndex == -1) {
-            return null;
-        }
-        
-        int valueStart = json.indexOf("\"", colonIndex);
-        if (valueStart == -1) {
-            return null;
-        }
-        
-        int valueEnd = json.indexOf("\"", valueStart + 1);
-        if (valueEnd == -1) {
-            return null;
-        }
-        
-        return json.substring(valueStart + 1, valueEnd);
-    }
 
     /**
      * Initiate forgot password flow - sends reset code to user's email
