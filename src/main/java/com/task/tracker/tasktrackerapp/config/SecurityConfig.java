@@ -65,7 +65,7 @@ public class SecurityConfig {
                 "http://127.0.0.1:*",
                 "http://192.168.*.*:*",
                 "https://d2idups4eyhbd8.cloudfront.net",   //CloudFront frontend
-               "https://cgi-facial-enquiries-pop.trycloudflare.com" //Cloudflare url of backend
+                "https://*.trycloudflare.com" //Cloudflare url of backend
         ));
 
         // Allow common HTTP methods
