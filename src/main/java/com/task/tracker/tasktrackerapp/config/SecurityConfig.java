@@ -58,28 +58,36 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        
+
         // Allow specific origins (don't use * with credentials)
-        configuration.setAllowedOriginPatterns(Arrays.asList("http://localhost:*", "http://127.0.0.1:*", "http://192.168.*.*:*", "*", "https://d2idups4eyhbd8.cloudfront.net"));
-        
+        configuration.setAllowedOriginPatterns(Arrays.asList(
+                "http://localhost:*",
+                "http://127.0.0.1:*",
+                "http://192.168.*.*:*",
+                "https://d2idups4eyhbd8.cloudfront.net",   //CloudFront frontend
+               "https://cgi-facial-enquiries-pop.trycloudflare.com" //Cloudflare url of backend
+        ));
+
         // Allow common HTTP methods
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        
+        configuration.setAllowedMethods(Arrays.asList(
+                "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"
+        ));
+
         // Allow all headers
         configuration.setAllowedHeaders(Arrays.asList("*"));
-        
-        // Expose Authorization header
+
+        // Expose headers
         configuration.setExposedHeaders(Arrays.asList("Authorization", "Content-Type"));
-        
-        // Allow credentials (important for auth)
+
+        // Allow credentials
         configuration.setAllowCredentials(true);
-        
-        // Cache preflight response for 1 hour
+
+        // Cache preflight for 1 hour
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
-        
+
         return source;
     }
 }
