@@ -2,25 +2,18 @@ package com.task.tracker.tasktrackerapp.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.task.tracker.tasktrackerapp.config.AWSCognitoConfig;
 import com.task.tracker.tasktrackerapp.dto.AuthResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
-import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.cognitoidentityprovider.CognitoIdentityProviderClient;
 import software.amazon.awssdk.services.cognitoidentityprovider.model.*;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,40 +31,13 @@ public class CognitoAuthService {
     @Value("${aws.cognito.clientSecret}")
     private String clientSecret;
 
-    @Value("${aws.cognito.region}")
-    private String region;
-
-    @Value("${aws.accessKeyId:#{null}}")
-    private String accessKeyId;
-
-    @Value("${aws.secretKey:#{null}}")
-    private String secretKey;
-
-    private CognitoIdentityProviderClient getCognitoClient() {
-        AwsCredentialsProvider credentialsProvider;
-
-        // Use explicit credentials if provided, otherwise use default chain
-        if (accessKeyId != null && !accessKeyId.isEmpty() &&
-            secretKey != null && !secretKey.isEmpty()) {
-            credentialsProvider = StaticCredentialsProvider.create(
-                AwsBasicCredentials.create(accessKeyId, secretKey)
-            );
-        } else {
-            credentialsProvider = DefaultCredentialsProvider.create();
-        }
-    
-
-        return CognitoIdentityProviderClient.builder()
-                .region(Region.of(region))
-                .credentialsProvider(credentialsProvider)
-                .build();
-    }
+    private AWSCognitoConfig awsCognitoConfig;
 
     /**
      * Authenticate user with AWS Cognito
      */
     public AuthResponse authenticate(String username, String password) {
-        try (CognitoIdentityProviderClient cognitoClient = getCognitoClient()) {
+        try (CognitoIdentityProviderClient cognitoClient = awsCognitoConfig.getCognitoClient()) {
 
             String secretHash = calculateSecretHash(username);
 
@@ -114,7 +80,7 @@ public class CognitoAuthService {
      * Register a new user in AWS Cognito
      */
     public void registerUser(String username, String password, String email) {
-        try (CognitoIdentityProviderClient cognitoClient = getCognitoClient()) {
+        try (CognitoIdentityProviderClient cognitoClient = awsCognitoConfig.getCognitoClient()) {
 
             AttributeType emailAttribute = AttributeType.builder()
                     .name("email")
@@ -154,7 +120,7 @@ public class CognitoAuthService {
      * Add user to a Cognito group (role)
      */
     public void addUserToGroup(String username, String groupName) {
-        try (CognitoIdentityProviderClient cognitoClient = getCognitoClient()) {
+        try (CognitoIdentityProviderClient cognitoClient = awsCognitoConfig.getCognitoClient()) {
 
             AdminAddUserToGroupRequest request = AdminAddUserToGroupRequest.builder()
                     .userPoolId(userPoolId)
@@ -179,7 +145,7 @@ public class CognitoAuthService {
      * Remove user from a Cognito group (role)
      */
     public void removeUserFromGroup(String username, String groupName) {
-        try (CognitoIdentityProviderClient cognitoClient = getCognitoClient()) {
+        try (CognitoIdentityProviderClient cognitoClient = awsCognitoConfig.getCognitoClient()) {
 
             AdminRemoveUserFromGroupRequest request = AdminRemoveUserFromGroupRequest.builder()
                     .userPoolId(userPoolId)
@@ -202,7 +168,7 @@ public class CognitoAuthService {
      * This ensures user has only one role at a time
      */
     public void replaceUserRole(String username, String newRole) {
-        try (CognitoIdentityProviderClient cognitoClient = getCognitoClient()) {
+        try (CognitoIdentityProviderClient cognitoClient = awsCognitoConfig.getCognitoClient()) {
 
             log.info("Replacing role for user {} with {}", username, newRole);
 
@@ -218,7 +184,7 @@ public class CognitoAuthService {
             for (GroupType group : listResponse.groups()) {
                 String groupName = group.groupName();
                 log.info("Removing user {} from group {}", username, groupName);
-                
+
                 AdminRemoveUserFromGroupRequest removeRequest = AdminRemoveUserFromGroupRequest.builder()
                         .userPoolId(userPoolId)
                         .username(username)
@@ -230,7 +196,7 @@ public class CognitoAuthService {
 
             // Step 3: Add user to new group
             log.info("Adding user {} to group {}", username, newRole);
-            
+
             AdminAddUserToGroupRequest addRequest = AdminAddUserToGroupRequest.builder()
                     .userPoolId(userPoolId)
                     .username(username)
@@ -255,7 +221,7 @@ public class CognitoAuthService {
      * Returns a list of group names the user belongs to
      */
     public List<String> getUserGroups(String username) {
-        try (CognitoIdentityProviderClient cognitoClient = getCognitoClient()) {
+        try (CognitoIdentityProviderClient cognitoClient = awsCognitoConfig.getCognitoClient()) {
 
             AdminListGroupsForUserRequest listRequest = AdminListGroupsForUserRequest.builder()
                     .userPoolId(userPoolId)
@@ -270,10 +236,10 @@ public class CognitoAuthService {
 
         } catch (UserNotFoundException e) {
             log.warn("User {} not found in Cognito when fetching groups", username);
-            return new java.util.ArrayList<>();
+            return new ArrayList<>();
         } catch (Exception e) {
             log.error("Failed to get groups for user {}: {}", username, e.getMessage());
-            return new java.util.ArrayList<>();
+            return new ArrayList<>();
         }
     }
 
@@ -281,7 +247,7 @@ public class CognitoAuthService {
      * Refresh authentication token
      */
     public AuthResponse refreshToken(String refreshToken) {
-        try (CognitoIdentityProviderClient cognitoClient = getCognitoClient()) {
+        try (CognitoIdentityProviderClient cognitoClient = awsCognitoConfig.getCognitoClient()) {
 
             Map<String, String> authParams = new HashMap<>();
             authParams.put("REFRESH_TOKEN", refreshToken);
@@ -313,7 +279,7 @@ public class CognitoAuthService {
      * Confirm user registration (for email verification)
      */
     public void confirmUserRegistration(String username, String confirmationCode) {
-        try (CognitoIdentityProviderClient cognitoClient = getCognitoClient()) {
+        try (CognitoIdentityProviderClient cognitoClient = awsCognitoConfig.getCognitoClient()) {
 
             String secretHash = calculateSecretHash(username);
 
@@ -338,7 +304,7 @@ public class CognitoAuthService {
      * Delete user from Cognito
      */
     public void deleteUser(String username) {
-        try (CognitoIdentityProviderClient cognitoClient = getCognitoClient()) {
+        try (CognitoIdentityProviderClient cognitoClient = awsCognitoConfig.getCognitoClient()) {
 
             AdminDeleteUserRequest deleteRequest = AdminDeleteUserRequest.builder()
                     .userPoolId(userPoolId)
@@ -370,27 +336,27 @@ public class CognitoAuthService {
 
             // Decode the payload (second part of JWT)
             String payload = new String(Base64.getDecoder().decode(tokenParts[1]), StandardCharsets.UTF_8);
-            
+
             // Parse JSON using Jackson ObjectMapper
             JsonNode jsonNode = objectMapper.readTree(payload);
-            
+
             // Extract fields - try both standard and Cognito-specific field names
             String username = null;
             String email = null;
             String sub = null;
-            
+
             // Try cognito:username first, then fall back to username
             if (jsonNode.has("cognito:username")) {
                 username = jsonNode.get("cognito:username").asText();
             } else if (jsonNode.has("username")) {
                 username = jsonNode.get("username").asText();
             }
-            
+
             // Extract email
             if (jsonNode.has("email")) {
                 email = jsonNode.get("email").asText();
             }
-            
+
             // Extract sub (Cognito unique identifier)
             if (jsonNode.has("sub")) {
                 sub = jsonNode.get("sub").asText();
@@ -415,7 +381,7 @@ public class CognitoAuthService {
      * Initiate forgot password flow - sends reset code to user's email
      */
     public void forgotPassword(String username) {
-        try (CognitoIdentityProviderClient cognitoClient = getCognitoClient()) {
+        try (CognitoIdentityProviderClient cognitoClient = awsCognitoConfig.getCognitoClient()) {
 
             String secretHash = calculateSecretHash(username);
 
@@ -442,7 +408,7 @@ public class CognitoAuthService {
      * Confirm forgot password - verify code and set new password
      */
     public void confirmForgotPassword(String username, String confirmationCode, String newPassword) {
-        try (CognitoIdentityProviderClient cognitoClient = getCognitoClient()) {
+        try (CognitoIdentityProviderClient cognitoClient = awsCognitoConfig.getCognitoClient()) {
 
             String secretHash = calculateSecretHash(username);
 
@@ -479,8 +445,8 @@ public class CognitoAuthService {
             String message = username + clientId;
             Mac mac = Mac.getInstance("HmacSHA256");
             SecretKeySpec keySpec = new SecretKeySpec(
-                clientSecret.getBytes(StandardCharsets.UTF_8),
-                "HmacSHA256"
+                    clientSecret.getBytes(StandardCharsets.UTF_8),
+                    "HmacSHA256"
             );
             mac.init(keySpec);
             byte[] rawHmac = mac.doFinal(message.getBytes(StandardCharsets.UTF_8));
