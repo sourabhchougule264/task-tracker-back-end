@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.task.tracker.tasktrackerapp.config.AWSCognitoConfig;
 import com.task.tracker.tasktrackerapp.dto.AuthResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.cognitoidentityprovider.CognitoIdentityProviderClient;
@@ -31,6 +32,7 @@ public class CognitoAuthService {
     @Value("${aws.cognito.clientSecret}")
     private String clientSecret;
 
+    @Autowired
     private AWSCognitoConfig awsCognitoConfig;
 
     /**
