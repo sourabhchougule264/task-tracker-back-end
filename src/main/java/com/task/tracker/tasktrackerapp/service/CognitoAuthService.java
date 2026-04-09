@@ -2,10 +2,8 @@ package com.task.tracker.tasktrackerapp.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.task.tracker.tasktrackerapp.config.AWSCognitoConfig;
 import com.task.tracker.tasktrackerapp.dto.AuthResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.cognitoidentityprovider.CognitoIdentityProviderClient;
@@ -32,14 +30,17 @@ public class CognitoAuthService {
     @Value("${aws.cognito.clientSecret}")
     private String clientSecret;
 
-    @Autowired
-    private AWSCognitoConfig awsCognitoConfig;
+    private final CognitoIdentityProviderClient cognitoClient;
+
+    public CognitoAuthService(CognitoIdentityProviderClient cognitoClient) {
+        this.cognitoClient = cognitoClient;
+    }
 
     /**
      * Authenticate user with AWS Cognito
      */
     public AuthResponse authenticate(String username, String password) {
-        try (CognitoIdentityProviderClient cognitoClient = awsCognitoConfig.getCognitoClient()) {
+        try {
 
             String secretHash = calculateSecretHash(username);
 
@@ -82,7 +83,7 @@ public class CognitoAuthService {
      * Register a new user in AWS Cognito
      */
     public void registerUser(String username, String password, String email) {
-        try (CognitoIdentityProviderClient cognitoClient = awsCognitoConfig.getCognitoClient()) {
+        try  {
 
             AttributeType emailAttribute = AttributeType.builder()
                     .name("email")
@@ -122,7 +123,7 @@ public class CognitoAuthService {
      * Add user to a Cognito group (role)
      */
     public void addUserToGroup(String username, String groupName) {
-        try (CognitoIdentityProviderClient cognitoClient = awsCognitoConfig.getCognitoClient()) {
+        try  {
 
             AdminAddUserToGroupRequest request = AdminAddUserToGroupRequest.builder()
                     .userPoolId(userPoolId)
@@ -135,7 +136,7 @@ public class CognitoAuthService {
             log.info("User {} added to group {}", username, groupName);
 
         } catch (ResourceNotFoundException e) {
-            log.error("Group {} not found", groupName);
+            log.error("Group {} not found while adding user", groupName);
             throw new RuntimeException("Group not found: " + groupName);
         } catch (Exception e) {
             log.error("Failed to add user {} to group {}: {}", username, groupName, e.getMessage());
@@ -147,7 +148,7 @@ public class CognitoAuthService {
      * Remove user from a Cognito group (role)
      */
     public void removeUserFromGroup(String username, String groupName) {
-        try (CognitoIdentityProviderClient cognitoClient = awsCognitoConfig.getCognitoClient()) {
+        try  {
 
             AdminRemoveUserFromGroupRequest request = AdminRemoveUserFromGroupRequest.builder()
                     .userPoolId(userPoolId)
@@ -170,7 +171,7 @@ public class CognitoAuthService {
      * This ensures user has only one role at a time
      */
     public void replaceUserRole(String username, String newRole) {
-        try (CognitoIdentityProviderClient cognitoClient = awsCognitoConfig.getCognitoClient()) {
+        try  {
 
             log.info("Replacing role for user {} with {}", username, newRole);
 
@@ -210,7 +211,7 @@ public class CognitoAuthService {
             log.info("Successfully replaced role for user {} with {}", username, newRole);
 
         } catch (ResourceNotFoundException e) {
-            log.error("Group {} not found", newRole);
+            log.error("Group {} not found while replacing role", newRole);
             throw new RuntimeException("Group not found: " + newRole);
         } catch (Exception e) {
             log.error("Failed to replace role for user {}: {}", username, e.getMessage());
@@ -223,7 +224,7 @@ public class CognitoAuthService {
      * Returns a list of group names the user belongs to
      */
     public List<String> getUserGroups(String username) {
-        try (CognitoIdentityProviderClient cognitoClient = awsCognitoConfig.getCognitoClient()) {
+        try  {
 
             AdminListGroupsForUserRequest listRequest = AdminListGroupsForUserRequest.builder()
                     .userPoolId(userPoolId)
@@ -249,7 +250,7 @@ public class CognitoAuthService {
      * Refresh authentication token
      */
     public AuthResponse refreshToken(String refreshToken) {
-        try (CognitoIdentityProviderClient cognitoClient = awsCognitoConfig.getCognitoClient()) {
+        try {
 
             Map<String, String> authParams = new HashMap<>();
             authParams.put("REFRESH_TOKEN", refreshToken);
@@ -281,7 +282,7 @@ public class CognitoAuthService {
      * Confirm user registration (for email verification)
      */
     public void confirmUserRegistration(String username, String confirmationCode) {
-        try (CognitoIdentityProviderClient cognitoClient = awsCognitoConfig.getCognitoClient()) {
+        try {
 
             String secretHash = calculateSecretHash(username);
 
@@ -306,7 +307,7 @@ public class CognitoAuthService {
      * Delete user from Cognito
      */
     public void deleteUser(String username) {
-        try (CognitoIdentityProviderClient cognitoClient = awsCognitoConfig.getCognitoClient()) {
+        try {
 
             AdminDeleteUserRequest deleteRequest = AdminDeleteUserRequest.builder()
                     .userPoolId(userPoolId)
@@ -383,7 +384,7 @@ public class CognitoAuthService {
      * Initiate forgot password flow - sends reset code to user's email
      */
     public void forgotPassword(String username) {
-        try (CognitoIdentityProviderClient cognitoClient = awsCognitoConfig.getCognitoClient()) {
+        try  {
 
             String secretHash = calculateSecretHash(username);
 
@@ -410,7 +411,7 @@ public class CognitoAuthService {
      * Confirm forgot password - verify code and set new password
      */
     public void confirmForgotPassword(String username, String confirmationCode, String newPassword) {
-        try (CognitoIdentityProviderClient cognitoClient = awsCognitoConfig.getCognitoClient()) {
+        try  {
 
             String secretHash = calculateSecretHash(username);
 

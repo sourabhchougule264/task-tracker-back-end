@@ -1,22 +1,17 @@
 package com.task.tracker.tasktrackerapp.config;
 
-import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import software.amazon.awssdk.identity.spi.AwsCredentialsIdentity;
-import software.amazon.awssdk.identity.spi.IdentityProvider;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.sts.StsClient;
-import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
-import software.amazon.awssdk.services.sts.model.AssumeRoleResponse;
-import software.amazon.awssdk.services.sts.model.Credentials;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.cognitoidentityprovider.CognitoIdentityProviderClient;
+import software.amazon.awssdk.services.sts.StsClient;
+import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
+import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 
 import java.util.UUID;
 
@@ -27,7 +22,7 @@ public class AWSCognitoConfig {
     @Value("${aws.cognito.region}")
     private String region;
 
-    @Value("${aws.accessKeyId}}")
+    @Value("${aws.accessKeyId}")
     private String accessKeyId;
 
     @Value("${aws.secretKey}")
@@ -39,47 +34,36 @@ public class AWSCognitoConfig {
     @Value("${aws.ec2.roleSessionName}")
     private String ec2RoleSessionName;
 
-    private CognitoIdentityProviderClient cognitoIdentityProviderClient;
-
-    @PostConstruct
-    private void initAwsCredentialsProvider() {
-        AwsCredentialsProvider credentialsProvider;
+    @Bean
+    public CognitoIdentityProviderClient cognitoIdentityProviderClient() {
+        log.info("Initializing Cognito Client with automatic STS refreshing...");
         try {
-            log.info("Initializing AWS Cognito Credentials Provider using sts Assume role");
-            StsClient stsClient = StsClient.builder()
+            // 1. Create the STS Client to perform the assumption
+             StsClient stsClient = StsClient.builder()
                     .region(Region.of(region))
                     .build();
 
-            AssumeRoleRequest assumeRoleRequest = AssumeRoleRequest.builder()
-                    .roleArn(ec2IamRoleArn)
-                    .roleSessionName(ec2RoleSessionName + UUID.randomUUID()) // Ensure unique session name for each assumption
+            // 2. Use a specialized provider that handles the session token AND expiration
+            StsAssumeRoleCredentialsProvider credentialsProvider = StsAssumeRoleCredentialsProvider.builder()
+                    .stsClient(stsClient)
+                    .refreshRequest(AssumeRoleRequest.builder()
+                            .roleArn(ec2IamRoleArn)
+                            .roleSessionName(ec2RoleSessionName + "-" + UUID.randomUUID())
+                            .build())
                     .build();
 
-            AssumeRoleResponse assumeRoleResponse = stsClient.assumeRole(assumeRoleRequest);
-            Credentials sessionCredentials = assumeRoleResponse.credentials();
-
-            credentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create(
-                    sessionCredentials.accessKeyId(),
-                    sessionCredentials.secretAccessKey()
-            ));
-
+            return CognitoIdentityProviderClient.builder()
+                    .region(Region.of(region))
+                    .credentialsProvider(credentialsProvider)
+                    .build();
         } catch (Exception e) {
             log.info("Using default AWS Cognito Credentials Provider when sts role assumptions are missing");
             if (accessKeyId != null && !accessKeyId.isEmpty() && secretKey != null && !secretKey.isEmpty()) {
-                credentialsProvider = StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKeyId, secretKey));
+                return CognitoIdentityProviderClient.builder().region(Region.of(region)).credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKeyId, secretKey))).build();
             } else {
                 log.info("Using default AWS Cognito Credentials Provider");
-                credentialsProvider = DefaultCredentialsProvider.create();
+               return CognitoIdentityProviderClient.builder().region(Region.of(region)).credentialsProvider(DefaultCredentialsProvider.create()).build();
             }
         }
-        log.info("AWS Cognito Credentials Provider initialized successfully");
-        cognitoIdentityProviderClient = CognitoIdentityProviderClient.builder().region(Region.of(region)).credentialsProvider(credentialsProvider).build();
-    }
-
-    public CognitoIdentityProviderClient getCognitoClient() {
-        if (cognitoIdentityProviderClient == null) {
-            initAwsCredentialsProvider();
-        }
-        return cognitoIdentityProviderClient;
     }
 }

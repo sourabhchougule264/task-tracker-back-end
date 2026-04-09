@@ -81,8 +81,7 @@ public class UserController {
 
     /**
      * Delete user
-     * Admin only - Note: This only deletes from database, Cognito user still exists
-     * To fully delete, use AuthController to delete from Cognito as well
+     * Admin only - Note: This only deletes from database and Cognito.
      */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")

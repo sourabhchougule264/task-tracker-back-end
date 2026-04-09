@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -146,10 +147,13 @@ public class UserService {
 
     @Transactional
     public void deleteUser(Long id) {
-        if (!userRepository.existsById(id)) {
+        Optional<User> user = userRepository.findById(id);
+        if (user.isPresent()) {
+            userRepository.deleteById(id);
+            cognitoAuthService.deleteUser(user.get().getUsername());
+        } else {
             throw new RuntimeException("User not found with id: " + id);
         }
-        userRepository.deleteById(id);
     }
 
     private UserDTO convertToDTO(User user) {
