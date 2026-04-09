@@ -28,41 +28,22 @@ public class AWSCognitoConfig {
     @Value("${aws.secretKey}")
     private String secretKey;
 
-    @Value("${aws.ec2.iamRoleArn}")
-    private String ec2IamRoleArn;
-
-    @Value("${aws.ec2.roleSessionName}")
-    private String ec2RoleSessionName;
 
     @Bean
     public CognitoIdentityProviderClient cognitoIdentityProviderClient() {
         log.info("Initializing Cognito Client with automatic STS refreshing...");
         try {
-            // 1. Create the STS Client to perform the assumption
-             StsClient stsClient = StsClient.builder()
-                    .region(Region.of(region))
-                    .build();
-
-            // 2. Use a specialized provider that handles the session token AND expiration
-            StsAssumeRoleCredentialsProvider credentialsProvider = StsAssumeRoleCredentialsProvider.builder()
-                    .stsClient(stsClient)
-                    .refreshRequest(AssumeRoleRequest.builder()
-                            .roleArn(ec2IamRoleArn)
-                            .roleSessionName(ec2RoleSessionName + "-" + UUID.randomUUID())
-                            .build())
-                    .build();
-
             return CognitoIdentityProviderClient.builder()
                     .region(Region.of(region))
-                    .credentialsProvider(credentialsProvider)
+                    .credentialsProvider(DefaultCredentialsProvider.create())
                     .build();
         } catch (Exception e) {
             log.info("Using default AWS Cognito Credentials Provider when sts role assumptions are missing");
             if (accessKeyId != null && !accessKeyId.isEmpty() && secretKey != null && !secretKey.isEmpty()) {
                 return CognitoIdentityProviderClient.builder().region(Region.of(region)).credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKeyId, secretKey))).build();
             } else {
-                log.info("Using default AWS Cognito Credentials Provider");
-               return CognitoIdentityProviderClient.builder().region(Region.of(region)).credentialsProvider(DefaultCredentialsProvider.create()).build();
+                log.error("AWS credentials not provided. Please set accessKeyId and secretKey in application properties.");
+                throw new RuntimeException("AWS credentials not provided");
             }
         }
     }
