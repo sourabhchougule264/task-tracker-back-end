@@ -1,328 +1,386 @@
-# Task Tracker Application
+# Task Tracker Backend
 
-A comprehensive Task Tracking application built with Spring Boot and PostgreSQL that enables project management, task tracking, user management, and role-based access control.
+Spring Boot backend for the Task Tracker system. It exposes REST APIs for authentication, users, projects, and tasks, uses PostgreSQL for application data, and relies on AWS Cognito for authentication and role-based access control.
 
-## Features
+## Overview
 
-- ✅ Create, Update, Delete Projects
-- ✅ Create, Update, Delete Tasks
-- ✅ Assign tasks to users
-- ✅ User management
-- ✅ Role-based access control (ADMIN, TASK_CREATOR, READ_ONLY)
-- ✅ Task status management (NEW, IN_PROGRESS, BLOCKED, COMPLETED, NOT_STARTED)
-- ✅ RESTful API architecture
-- ✅ PostgreSQL database integration
-- ✅ Exception handling
-- ✅ Modular and SOLID principles
-- ✅ **Two authentication options**: Database or AWS Cognito
+- Base URL: `http://localhost:8080/api`
+- Swagger UI: `http://localhost:8080/api/swagger-ui.html`
+- OpenAPI JSON: `http://localhost:8080/api/v3/api-docs`
+- Health check: `GET /api/auth/health`
+- Packaging: `war`
 
-## Authentication Options
+## Core Capabilities
 
-### Option 1: Database-Based Roles (Current Implementation)
-- Roles stored in PostgreSQL
-- Custom user management
-- Full control over authentication logic
-- **Good for**: Learning, local development, offline work
+- Cognito-backed sign-up, login, token refresh, email confirmation, and password reset
+- JWT-secured APIs through Spring Security OAuth2 Resource Server
+- Project lifecycle management with owner-aware authorization
+- Task lifecycle management, assignment, and status tracking
+- User profile storage in PostgreSQL with Cognito identity synchronization
+- Swagger/OpenAPI documentation for interactive API exploration
 
-### Option 2: AWS Cognito (Recommended for Production)
-- AWS-managed authentication
-- Built-in SSO, MFA, and social login
-- FREE for up to 50,000 users/month
-- Enterprise-grade security
-- **Good for**: Production, scalability, modern cloud apps
+## Architecture
 
-📘 **See documentation:**
-- `AWS_COGNITO_INTEGRATION.md` - Complete Cognito setup guide
-- `DATABASE_VS_COGNITO_COMPARISON.md` - Detailed comparison
-- `COGNITO_IMPLEMENTATION_CHECKLIST.md` - Step-by-step migration
+```mermaid
+flowchart LR
+    Client[Web or API Client]
+    Swagger[Swagger UI]
+    Security[Spring Security Filter Chain]
+    Controllers[REST Controllers]
+    Services[Service Layer]
+    Authz[AuthorizationService]
+    Cognito[AWS Cognito]
+    DB[(PostgreSQL)]
+
+    Client --> Security
+    Swagger --> Security
+    Security --> Controllers
+    Controllers --> Services
+    Services --> Authz
+    Services --> DB
+    Services --> Cognito
+    Security --> Cognito
+```
+
+### Authentication Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant API as Task Tracker API
+    participant C as AWS Cognito
+    participant DB as PostgreSQL
+
+    U->>API: POST /api/auth/login
+    API->>C: USER_PASSWORD_AUTH
+    C-->>API: Access token + ID token + refresh token
+    API->>DB: Sync user profile from ID token if needed
+    API-->>U: Bearer tokens
+
+    U->>API: Call protected endpoint with access token
+    API->>C: Validate JWT via issuer/JWKS
+    API->>API: Resolve Cognito groups to ROLE_* authorities
+    API-->>U: Protected resource response
+```
+
+### Domain Model
+
+```mermaid
+erDiagram
+    USER ||--o{ PROJECT : owns
+    USER ||--o{ TASK : creates
+    USER ||--o{ TASK : assigned_to
+    PROJECT ||--o{ TASK : contains
+
+    USER {
+        bigint id
+        string username
+        string email
+        string cognitoSub
+        string firstName
+        string lastName
+        boolean isActive
+    }
+
+    PROJECT {
+        bigint id
+        string name
+        string description
+        date startDate
+        date endDate
+        bigint ownerId
+    }
+
+    TASK {
+        bigint id
+        string description
+        date dueDate
+        string status
+        bigint ownerId
+        bigint assignedUserId
+        bigint projectId
+    }
+```
 
 ## Technology Stack
 
-- **Backend**: Spring Boot 3.5.10
-- **Database**: PostgreSQL
-- **ORM**: Spring Data JPA / Hibernate
-- **Build Tool**: Maven
-- **Java Version**: 21
-- **Additional Libraries**: Lombok
+- Java 17
+- Spring Boot 3.5.10
+- Spring Web
+- Spring Data JPA
+- Spring Security
+- OAuth2 Resource Server with JWT
+- PostgreSQL
+- AWS SDK v2 for Cognito and STS
+- springdoc OpenAPI / Swagger UI
+- Maven
+- Lombok
 
-## Prerequisites
+## Security Model
 
-- JDK 21 or higher
-- PostgreSQL 12 or higher
-- Maven 3.6 or higher
-- AWS Account (optional, for cloud deployment)
+Authentication is handled by AWS Cognito. API authorization is enforced with JWT claims, where Cognito groups are converted into Spring Security authorities using the `ROLE_` prefix.
 
-## Database Setup
+Supported roles:
 
-1. Install PostgreSQL
-2. Create a database named `tasktracker`:
+- `ADMIN`: full access across users, projects, and tasks
+- `TASK_CREATOR`: can create projects and tasks; can update or delete owned resources; can assign tasks
+- `READ_ONLY`: can view protected resources and can update status only for tasks assigned to them
 
-```sql
-CREATE DATABASE tasktracker;
-```
+Notes:
 
-3. Update `application.properties` with your database credentials:
+- Passwords are not stored in the local database.
+- New registrations are added to the `READ_ONLY` group by default.
+- User profile records are synced into PostgreSQL after registration or login.
 
-```properties
-spring.datasource.username=your_username
-spring.datasource.password=your_password
-```
+## Functional Layout
 
-Or set environment variables:
-```bash
-DB_USERNAME=your_username
-DB_PASSWORD=your_password
-```
+### Controllers
 
-## Installation & Running
+- `AuthController`: Cognito auth, confirmation, token refresh, role assignment, password reset
+- `ProjectController`: CRUD and ownership-based project queries
+- `TaskController`: CRUD, task assignment, task status updates, personal task views
+- `UserController`: user profile CRUD and current-user lookups
 
-1. Clone the repository
-2. Navigate to the project directory
-3. Build the project:
+### Services
 
-```bash
-mvn clean install
-```
+- `CognitoAuthService`: wraps Cognito user and token operations
+- `AuthorizationService`: centralizes ownership and role checks
+- `ProjectService`: project business logic and DTO mapping
+- `TaskService`: task business logic, assignment, and status rules
+- `UserService`: user profile persistence and Cognito sync support
 
-4. Run the application:
+## API Summary
 
-```bash
-mvn spring-boot:run
-```
+All endpoints below are relative to `/api`.
 
-The application will start on `http://localhost:8080/api`
+### Authentication
 
-## API Endpoints
+| Method | Endpoint | Purpose | Auth |
+| --- | --- | --- | --- |
+| `POST` | `/auth/register` | Register a user in Cognito | Public |
+| `POST` | `/auth/confirm` | Confirm sign-up with verification code | Public |
+| `POST` | `/auth/login` | Authenticate and receive tokens | Public |
+| `POST` | `/auth/refresh` | Refresh access token | Public |
+| `POST` | `/auth/forgot-password` | Start reset-password flow | Public |
+| `POST` | `/auth/confirm-forgot-password` | Complete reset-password flow | Public |
+| `POST` | `/auth/assign-role` | Replace a user's Cognito role/group | `ADMIN` |
+| `POST` | `/auth/remove-role` | Remove a Cognito role/group from a user | `ADMIN` |
+| `GET` | `/auth/health` | Service health endpoint | Public |
 
-### Project APIs
+### Projects
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/projects` | Create a new project |
-| GET | `/api/projects` | Get all projects |
-| GET | `/api/projects/{id}` | Get project by ID |
-| GET | `/api/projects/owner/{ownerId}` | Get projects by owner |
-| PUT | `/api/projects/{id}` | Update project |
-| DELETE | `/api/projects/{id}` | Delete project |
+| Method | Endpoint | Purpose | Auth |
+| --- | --- | --- | --- |
+| `POST` | `/projects` | Create a project | `ADMIN`, `TASK_CREATOR` |
+| `GET` | `/projects` | List all projects | Authenticated |
+| `GET` | `/projects/{id}` | Get project by ID | Authenticated |
+| `GET` | `/projects/owner/{username}` | Get projects for a specific owner | Authenticated |
+| `GET` | `/projects/my-projects` | Get projects owned by current user | Authenticated |
+| `PUT` | `/projects/{id}` | Update a project | `ADMIN` or project owner |
+| `DELETE` | `/projects/{id}` | Delete a project | `ADMIN` or project owner |
 
-**Sample Project JSON:**
-```json
-{
-  "name": "Mobile App Development",
-  "description": "Develop a mobile application",
-  "startDate": "2024-01-01",
-  "endDate": "2024-12-31",
-  "ownerId": 1
-}
-```
+### Tasks
 
-### Task APIs
+| Method | Endpoint | Purpose | Auth |
+| --- | --- | --- | --- |
+| `POST` | `/tasks` | Create a task | `ADMIN`, `TASK_CREATOR` |
+| `GET` | `/tasks` | List all tasks | Authenticated |
+| `GET` | `/tasks/{id}` | Get task by ID | Authenticated |
+| `GET` | `/tasks/project/{projectId}` | Get tasks in a project | Authenticated |
+| `GET` | `/tasks/assigned/{username}` | Get tasks assigned to a user | Authenticated |
+| `GET` | `/tasks/my-tasks` | Get tasks assigned to current user | Authenticated |
+| `GET` | `/tasks/status/{status}` | Filter tasks by status | Authenticated |
+| `PUT` | `/tasks/{id}` | Update task details | `ADMIN` or allowed owner/assignee flow |
+| `PATCH` | `/tasks/{taskId}/assign/{username}` | Assign task to a user | `ADMIN`, `TASK_CREATOR` |
+| `PATCH` | `/tasks/{taskId}/status/{status}` | Update task status | Role and ownership aware |
+| `DELETE` | `/tasks/{id}` | Delete a task | `ADMIN` or task owner |
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/tasks` | Create a new task |
-| GET | `/api/tasks` | Get all tasks |
-| GET | `/api/tasks/{id}` | Get task by ID |
-| GET | `/api/tasks/project/{projectId}` | Get tasks by project |
-| GET | `/api/tasks/assigned/{userId}` | Get tasks assigned to user |
-| GET | `/api/tasks/status/{status}` | Get tasks by status |
-| PUT | `/api/tasks/{id}` | Update task |
-| PATCH | `/api/tasks/{taskId}/assign/{userId}` | Assign task to user |
-| PATCH | `/api/tasks/{taskId}/status/{status}` | Update task status |
-| DELETE | `/api/tasks/{id}` | Delete task |
+### Users
 
-**Sample Task JSON:**
-```json
-{
-  "description": "Design database schema",
-  "dueDate": "2024-06-30",
-  "status": "NEW",
-  "ownerId": 1,
-  "assignedUserId": 2,
-  "projectId": 1
-}
-```
+| Method | Endpoint | Purpose | Auth |
+| --- | --- | --- | --- |
+| `POST` | `/users` | Create a user profile record | `ADMIN` |
+| `GET` | `/users` | List all users | Authenticated |
+| `GET` | `/users/me` | Get current user profile | Authenticated |
+| `GET` | `/users/{id}` | Get user by ID | Authenticated |
+| `GET` | `/users/username/{username}` | Get user by username | Authenticated |
+| `PUT` | `/users/{id}` | Update a user profile | `ADMIN` or self-service path |
+| `DELETE` | `/users/{id}` | Delete a user from DB and Cognito | `ADMIN` |
 
-**Task Status Values:**
+## DTOs and Main Entities
+
+### `ProjectDTO`
+
+- `id`
+- `name`
+- `description`
+- `startDate`
+- `endDate`
+- `ownerId`
+- `ownerUsername`
+
+### `TaskDTO`
+
+- `id`
+- `description`
+- `dueDate`
+- `status`
+- `ownerId`
+- `ownerUsername`
+- `assignedUserId`
+- `assignedUsername`
+- `projectId`
+- `projectName`
+
+### `UserDTO`
+
+- `id`
+- `username`
+- `email`
+- `cognitoSub`
+- `firstName`
+- `lastName`
+- `isActive`
+- `roles`
+
+### Task Status Values
+
 - `NEW`
 - `IN_PROGRESS`
 - `BLOCKED`
 - `COMPLETED`
 - `NOT_STARTED`
 
-### User APIs
+## Local Setup
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/users` | Create a new user |
-| GET | `/api/users` | Get all users |
-| GET | `/api/users/{id}` | Get user by ID |
-| GET | `/api/users/username/{username}` | Get user by username |
-| PUT | `/api/users/{id}` | Update user |
-| POST | `/api/users/{userId}/roles/{roleType}` | Assign role to user |
-| DELETE | `/api/users/{userId}/roles/{roleType}` | Remove role from user |
-| DELETE | `/api/users/{id}` | Delete user |
+### Prerequisites
 
-**Sample User JSON:**
-```json
+- JDK 17+
+- Maven 3.9+
+- PostgreSQL 12+
+- AWS account with Cognito User Pool configured
+
+### 1. Create the database
+
+```sql
+CREATE DATABASE tasktracker;
+```
+
+### 2. Configure runtime properties
+
+The application currently reads Spring and AWS settings from `src/main/resources/application.properties`. For local or deployed environments, prefer overriding these values through environment variables or external configuration instead of committing secrets.
+
+Common overrides:
+
+```powershell
+$env:SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5432/tasktracker"
+$env:SPRING_DATASOURCE_USERNAME="postgres"
+$env:SPRING_DATASOURCE_PASSWORD="change-me"
+$env:SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI="https://cognito-idp.<region>.amazonaws.com/<user-pool-id>"
+$env:AWS_COGNITO_REGION="<region>"
+$env:AWS_COGNITO_USERPOOLID="<user-pool-id>"
+$env:AWS_COGNITO_CLIENTID="<app-client-id>"
+$env:AWS_COGNITO_CLIENTSECRET="<app-client-secret>"
+$env:AWS_ACCESSKEYID="<aws-access-key>"
+$env:AWS_SECRETKEY="<aws-secret-key>"
+```
+
+### 3. Build and run
+
+```bash
+mvn clean install
+mvn spring-boot:run
+```
+
+The API will start at `http://localhost:8080/api`.
+
+## Example Requests
+
+### Register
+
+```http
+POST /api/auth/register
+Content-Type: application/json
+
 {
   "username": "john.doe",
-  "password": "password123",
-  "email": "john.doe@example.com",
-  "firstName": "John",
-  "lastName": "Doe"
+  "password": "P@ssw0rd123",
+  "email": "john.doe@example.com"
 }
 ```
 
-### Role APIs
+### Login
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/roles` | Create a new role |
-| GET | `/api/roles` | Get all roles |
-| GET | `/api/roles/{id}` | Get role by ID |
-| GET | `/api/roles/name/{name}` | Get role by name |
-| DELETE | `/api/roles/{id}` | Delete role |
+```http
+POST /api/auth/login
+Content-Type: application/json
 
-**Role Types:**
-- `ADMIN` - Full access to manage projects, tasks, and users
-- `TASK_CREATOR` - Can create and update projects and tasks
-- `READ_ONLY` - Can only view tasks and mark assigned tasks as complete
-
-**Sample Role JSON:**
-```json
 {
-  "name": "ADMIN",
-  "description": "Administrator role with full access"
+  "username": "john.doe",
+  "password": "P@ssw0rd123"
+}
+```
+
+### Create project
+
+```http
+POST /api/projects
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{
+  "name": "Task Tracker Revamp",
+  "description": "Backend and UI improvements",
+  "startDate": "2026-04-01",
+  "endDate": "2026-06-30"
+}
+```
+
+### Create task
+
+```http
+POST /api/tasks
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{
+  "description": "Document backend API",
+  "dueDate": "2026-04-20",
+  "status": "NEW",
+  "projectId": 1
 }
 ```
 
 ## Project Structure
 
-```
+```text
 tasktrackerapp/
-├── src/
-│   ├── main/
-│   │   ├── java/com/task/tracker/tasktrackerapp/
-│   │   │   ├── config/
-│   │   │   │   └── DataInitializer.java
-│   │   │   ├── controller/
-│   │   │   │   ├── ProjectController.java
-│   │   │   │   ├── TaskController.java
-│   │   │   │   ├── UserController.java
-│   │   │   │   └── RoleController.java
-│   │   │   ├── dto/
-│   │   │   │   ├── ProjectDTO.java
-│   │   │   │   ├── TaskDTO.java
-│   │   │   │   └── UserDTO.java
-│   │   │   ├── entity/
-│   │   │   │   ├── Project.java
-│   │   │   │   ├── Task.java
-│   │   │   │   ├── User.java
-│   │   │   │   └── Role.java
-│   │   │   ├── enums/
-│   │   │   │   ├── TaskStatus.java
-│   │   │   │   └── RoleType.java
-│   │   │   ├── exception/
-│   │   │   │   ├── ErrorResponse.java
-│   │   │   │   └── GlobalExceptionHandler.java
-│   │   │   ├── repository/
-│   │   │   │   ├── ProjectRepository.java
-│   │   │   │   ├── TaskRepository.java
-│   │   │   │   ├── UserRepository.java
-│   │   │   │   └── RoleRepository.java
-│   │   │   ├── service/
-│   │   │   │   ├── ProjectService.java
-│   │   │   │   ├── TaskService.java
-│   │   │   │   ├── UserService.java
-│   │   │   │   └── RoleService.java
-│   │   │   └── TasktrackerappApplication.java
-│   │   └── resources/
-│   │       └── application.properties
-│   └── test/
-└── pom.xml
+|-- src/
+|   |-- main/
+|   |   |-- java/com/task/tracker/tasktrackerapp/
+|   |   |   |-- config/
+|   |   |   |-- controller/
+|   |   |   |-- dto/
+|   |   |   |-- entity/
+|   |   |   |-- enums/
+|   |   |   |-- exception/
+|   |   |   |-- repository/
+|   |   |   |-- service/
+|   |   |   |-- Utility/
+|   |   |   |-- ServletInitializer.java
+|   |   |   `-- TasktrackerappApplication.java
+|   |   `-- resources/
+|   |       `-- application.properties
+|   `-- test/
+|-- Dockerfile
+|-- pom.xml
+|-- QUICK_START.md
+`-- README.md
 ```
 
-## AWS Deployment Options
+## Deployment Notes
 
-### Option 1: Amazon RDS + EC2
-- Deploy PostgreSQL on Amazon RDS
-- Deploy Spring Boot app on EC2 instance
+- The project is packaged as a WAR and can run on embedded Tomcat or an external servlet container.
+- Current configuration targets PostgreSQL and AWS Cognito, so deployed environments should externalize all secrets and environment-specific URLs.
+- CORS is enabled for localhost, LAN testing, a CloudFront frontend, and Cloudflare tunnel domains.
 
-### Option 2: Amazon ECS/EKS
-- Containerize application with Docker
-- Deploy on Amazon ECS (Fargate) or EKS
-
-### Option 3: Elastic Beanstalk
-- Package application as WAR/JAR
-- Deploy directly to Elastic Beanstalk
-
-### Additional AWS Services Integration
-- **Amazon S3**: Store task attachments
-- **Amazon Cognito**: SSO authentication
-- **Amazon CloudWatch**: Monitoring and logging
-- **AWS Lambda**: Scheduled tasks and notifications
-- **Amazon SES**: Email notifications
-- **Amazon ElastiCache**: Caching layer
-
-## Testing APIs
-
-You can test the APIs using:
-- **Postman**: Import the endpoints and test
-- **cURL**: Command-line testing
-- **Swagger UI**: (Can be added with springdoc-openapi dependency)
-
-### Example cURL Commands:
-
-**Create a Project:**
-```bash
-curl -X POST http://localhost:8080/api/projects \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "New Project",
-    "description": "Project description",
-    "startDate": "2024-01-01",
-    "endDate": "2024-12-31",
-    "ownerId": 1
-  }'
-```
-
-**Get All Tasks:**
-```bash
-curl -X GET http://localhost:8080/api/tasks
-```
-
-**Update Task Status:**
-```bash
-curl -X PATCH http://localhost:8080/api/tasks/1/status/IN_PROGRESS
-```
-
-## Future Enhancements
-
-- [ ] Spring Security with JWT authentication
-- [ ] OAuth2/SSO integration with AWS Cognito
-- [ ] API documentation with Swagger/OpenAPI
-- [ ] Unit and integration tests
-- [ ] Docker containerization
-- [ ] CI/CD pipeline with AWS CodePipeline
-- [ ] File upload for task attachments
-- [ ] Email notifications
-- [ ] Task comments and activity log
-- [ ] Dashboard and analytics
-- [ ] Search and advanced filtering
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
-
-## License
-
-This project is licensed under the MIT License.
-
-## Contact
-
-For questions or support, please contact the development team.
