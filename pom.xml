@@ -32,6 +32,7 @@
 		<aws.sdk.version>2.25.70</aws.sdk.version>
 		<sonar.organization>sourabhchougule264</sonar.organization>
 		<sonar.coverage.exclusions>**/config/**,**/exception/**,**/enums/**,**/TasktrackerappApplication.java</sonar.coverage.exclusions>
+		<sonar.exclusions>**/config/**,**/exception/**,**/enums/**</sonar.exclusions>
 	</properties>
 
 	<!-- AWS SDK v2 BOM — pins all AWS modules to the same version -->
@@ -55,6 +56,12 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-test</artifactId>
+			<scope>test</scope>
 		</dependency>
 
 		<!-- Spring Security -->
