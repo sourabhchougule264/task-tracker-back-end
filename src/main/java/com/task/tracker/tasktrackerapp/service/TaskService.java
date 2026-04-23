@@ -24,6 +24,10 @@ public class TaskService {
     private final UserRepository userRepository;
     private final ProjectRepository projectRepository;
     private final AuthorizationService authorizationService;
+    private static final String TASK_NOT_FOUND_MESSAGE = "Task not found with id: ";
+    private static final String PROJECT_NOT_FOUND_MESSAGE = "Project not found with id: ";
+    private static final String USER_NOT_FOUND_MESSAGE = "Assigned user not found with id: ";
+    private static final String USER_NOT_FOUND_WITH_USERNAME_MSG = "Assigned user not found with username: ";
 
     @Transactional
     public TaskDTO createTask(TaskDTO taskDTO) {
@@ -31,7 +35,7 @@ public class TaskService {
                 .orElseThrow(() -> new RuntimeException("Owner not found with id: " + taskDTO.getOwnerId()));
 
         Project project = projectRepository.findById(taskDTO.getProjectId())
-                .orElseThrow(() -> new RuntimeException("Project not found with id: " + taskDTO.getProjectId()));
+                .orElseThrow(() -> new RuntimeException(PROJECT_NOT_FOUND_MESSAGE + taskDTO.getProjectId()));
 
         Task task = Task.builder()
                 .description(taskDTO.getDescription())
@@ -44,11 +48,11 @@ public class TaskService {
         // Handle assigned user - support both username and userId
         if (taskDTO.getAssignedUsername() != null && !taskDTO.getAssignedUsername().isEmpty()) {
             User assignedUser = userRepository.findByUsername(taskDTO.getAssignedUsername())
-                    .orElseThrow(() -> new RuntimeException("Assigned user not found with username: " + taskDTO.getAssignedUsername()));
+                    .orElseThrow(() -> new RuntimeException(USER_NOT_FOUND_WITH_USERNAME_MSG + taskDTO.getAssignedUsername()));
             task.setAssignedUser(assignedUser);
         } else if (taskDTO.getAssignedUserId() != null) {
             User assignedUser = userRepository.findById(taskDTO.getAssignedUserId())
-                    .orElseThrow(() -> new RuntimeException("Assigned user not found with id: " + taskDTO.getAssignedUserId()));
+                    .orElseThrow(() -> new RuntimeException(USER_NOT_FOUND_MESSAGE + taskDTO.getAssignedUserId()));
             task.setAssignedUser(assignedUser);
         }
 
@@ -64,7 +68,7 @@ public class TaskService {
         Project project = null;
         if(taskDTO.getProjectId() != null) {
              project = projectRepository.findById(taskDTO.getProjectId())
-                    .orElseThrow(() -> new RuntimeException("Project not found with id: " + taskDTO.getProjectId()));
+                    .orElseThrow(() -> new RuntimeException(PROJECT_NOT_FOUND_MESSAGE+ taskDTO.getProjectId()));
 
         }
 
@@ -79,11 +83,11 @@ public class TaskService {
         // Handle assigned user - support both username and userId
         if (taskDTO.getAssignedUsername() != null && !taskDTO.getAssignedUsername().isEmpty()) {
             User assignedUser = userRepository.findByUsername(taskDTO.getAssignedUsername())
-                    .orElseThrow(() -> new RuntimeException("Assigned user not found with username: " + taskDTO.getAssignedUsername()));
+                    .orElseThrow(() -> new RuntimeException(USER_NOT_FOUND_WITH_USERNAME_MSG + taskDTO.getAssignedUsername()));
             task.setAssignedUser(assignedUser);
         } else if (taskDTO.getAssignedUserId() != null) {
             User assignedUser = userRepository.findById(taskDTO.getAssignedUserId())
-                    .orElseThrow(() -> new RuntimeException("Assigned user not found with id: " + taskDTO.getAssignedUserId()));
+                    .orElseThrow(() -> new RuntimeException(USER_NOT_FOUND_MESSAGE + taskDTO.getAssignedUserId()));
             task.setAssignedUser(assignedUser);
         }
 
@@ -94,7 +98,7 @@ public class TaskService {
     @Transactional(readOnly = true)
     public TaskDTO getTaskById(Long id) {
         Task task = taskRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Task not found with id: " + id));
+                .orElseThrow(() -> new RuntimeException(TASK_NOT_FOUND_MESSAGE + id));
         return convertToDTO(task);
     }
 
@@ -138,7 +142,7 @@ public class TaskService {
     @Transactional
     public TaskDTO updateTask(Long id, TaskDTO taskDTO) {
         Task task = taskRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Task not found with id: " + id));
+                .orElseThrow(() -> new RuntimeException(TASK_NOT_FOUND_MESSAGE + id));
 
         task.setDescription(taskDTO.getDescription());
         task.setDueDate(taskDTO.getDueDate());
@@ -147,7 +151,7 @@ public class TaskService {
         // Handle project update
         if (taskDTO.getProjectId() != null) {
             Project project = projectRepository.findById(taskDTO.getProjectId())
-                    .orElseThrow(() -> new RuntimeException("Project not found with id: " + taskDTO.getProjectId()));
+                    .orElseThrow(() -> new RuntimeException(PROJECT_NOT_FOUND_MESSAGE + taskDTO.getProjectId()));
             task.setProject(project);
         } else {
             task.setProject(null);
@@ -156,11 +160,11 @@ public class TaskService {
         // Handle assigned user - support both username and userId
         if (taskDTO.getAssignedUsername() != null && !taskDTO.getAssignedUsername().isEmpty()) {
             User assignedUser = userRepository.findByUsername(taskDTO.getAssignedUsername())
-                    .orElseThrow(() -> new RuntimeException("Assigned user not found with username: " + taskDTO.getAssignedUsername()));
+                    .orElseThrow(() -> new RuntimeException(USER_NOT_FOUND_WITH_USERNAME_MSG + taskDTO.getAssignedUsername()));
             task.setAssignedUser(assignedUser);
         } else if (taskDTO.getAssignedUserId() != null) {
             User assignedUser = userRepository.findById(taskDTO.getAssignedUserId())
-                    .orElseThrow(() -> new RuntimeException("Assigned user not found with id: " + taskDTO.getAssignedUserId()));
+                    .orElseThrow(() -> new RuntimeException(USER_NOT_FOUND_MESSAGE + taskDTO.getAssignedUserId()));
             task.setAssignedUser(assignedUser);
         } else {
             task.setAssignedUser(null);

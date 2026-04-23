@@ -1,7 +1,6 @@
 package com.task.tracker.tasktrackerapp.controller;
 
-import com.task.tracker.tasktrackerapp.Utility.AuthUtility;
-import com.task.tracker.tasktrackerapp.dto.AuthRequest;
+import com.task.tracker.tasktrackerapp.utility.AuthUtility;
 import com.task.tracker.tasktrackerapp.dto.ProjectDTO;
 import com.task.tracker.tasktrackerapp.service.ProjectService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,7 +15,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;

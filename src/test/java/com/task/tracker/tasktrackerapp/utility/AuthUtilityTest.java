@@ -1,6 +1,5 @@
 package com.task.tracker.tasktrackerapp.utility;
 
-import com.task.tracker.tasktrackerapp.Utility.AuthUtility;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

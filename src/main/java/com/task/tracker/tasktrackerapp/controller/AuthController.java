@@ -23,13 +23,14 @@ import java.util.Map;
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 @Slf4j
 @Tag(name = "Authentication Controller", description = "Endpoints for user authentication, registration, and role management")
 public class AuthController {
 
     private final CognitoAuthService cognitoAuthService;
     private final UserService userService;
+    private static final String MSG_ATTR = "message";
+    private static final String USRNAME_ATTR = "username";
 
     /**
      * Login endpoint - authenticate user with AWS Cognito
@@ -305,8 +306,8 @@ public class AuthController {
             log.info("User {} registration process completed", request.getUsername());
 
             return ResponseEntity.ok(Map.of(
-                    "message", "User registered successfully. Please check your email for verification code.",
-                    "username", request.getUsername()
+                    MSG_ATTR, "User registered successfully. Please check your email for verification code.",
+                    USRNAME_ATTR, request.getUsername()
             ));
         } catch (Exception e) {
             log.error("Registration failed for user {}: {}", request.getUsername(), e.getMessage(), e);
@@ -426,7 +427,7 @@ public class AuthController {
     )
     @PostMapping("/confirm")
     public ResponseEntity<Map<String, String>> confirmRegistration(@RequestBody Map<String, String> request) {
-        String username = request.get("username");
+        String username = request.get(USRNAME_ATTR);
         String confirmationCode = request.get("confirmationCode");
 
         log.info("Email confirmation for user: {}", username);
@@ -434,8 +435,8 @@ public class AuthController {
         cognitoAuthService.confirmUserRegistration(username, confirmationCode);
 
         return ResponseEntity.ok(Map.of(
-                "message", "User confirmed successfully. You can now login.",
-                "username", username
+                MSG_ATTR, "User confirmed successfully. You can now login.",
+                USRNAME_ATTR, username
         ));
     }
 
@@ -684,7 +685,7 @@ public class AuthController {
     @PostMapping("/assign-role")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, String>> assignRole(@RequestBody Map<String, String> request) {
-        String username = request.get("username");
+        String username = request.get(USRNAME_ATTR);
         String role = request.get("role");
 
         log.info("Replacing role for user {} with {}", username, role);
@@ -693,8 +694,8 @@ public class AuthController {
         cognitoAuthService.replaceUserRole(username, role);
 
         return ResponseEntity.ok(Map.of(
-                "message", "Role assigned successfully",
-                "username", username,
+                MSG_ATTR, "Role assigned successfully",
+                USRNAME_ATTR, username,
                 "role", role
         ));
     }
@@ -813,7 +814,7 @@ public class AuthController {
     @PostMapping("/remove-role")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, String>> removeRole(@RequestBody Map<String, String> request) {
-        String username = request.get("username");
+        String username = request.get(USRNAME_ATTR);
         String role = request.get("role");
 
         log.info("Removing role {} from user {}", role, username);
@@ -821,8 +822,8 @@ public class AuthController {
         cognitoAuthService.removeUserFromGroup(username, role);
 
         return ResponseEntity.ok(Map.of(
-                "message", "Role removed successfully",
-                "username", username,
+                MSG_ATTR, "Role removed successfully",
+                USRNAME_ATTR, username,
                 "role", role
         ));
     }
@@ -939,7 +940,7 @@ public class AuthController {
     )
     @PostMapping("/forgot-password")
     public ResponseEntity<Map<String, String>> forgotPassword(@RequestBody Map<String, String> request) {
-        String username = request.get("username");
+        String username = request.get(USRNAME_ATTR);
 
         log.info("Forgot password request for user: {}", username);
 
@@ -947,8 +948,8 @@ public class AuthController {
             cognitoAuthService.forgotPassword(username);
 
             return ResponseEntity.ok(Map.of(
-                    "message", "Password reset code sent to your email",
-                    "username", username
+                    MSG_ATTR, "Password reset code sent to your email",
+                    USRNAME_ATTR, username
             ));
         } catch (Exception e) {
             log.error("Forgot password failed for user {}: {}", username, e.getMessage());
@@ -1068,7 +1069,7 @@ public class AuthController {
     )
     @PostMapping("/confirm-forgot-password")
     public ResponseEntity<Map<String, String>> confirmForgotPassword(@RequestBody Map<String, String> request) {
-        String username = request.get("username");
+        String username = request.get(USRNAME_ATTR);
         String confirmationCode = request.get("confirmationCode");
         String newPassword = request.get("newPassword");
 
@@ -1078,8 +1079,8 @@ public class AuthController {
             cognitoAuthService.confirmForgotPassword(username, confirmationCode, newPassword);
 
             return ResponseEntity.ok(Map.of(
-                    "message", "Password reset successfully. You can now login with your new password.",
-                    "username", username
+                    MSG_ATTR, "Password reset successfully. You can now login with your new password.",
+                    USRNAME_ATTR, username
             ));
         } catch (Exception e) {
             log.error("Confirm forgot password failed for user {}: {}", username, e.getMessage());

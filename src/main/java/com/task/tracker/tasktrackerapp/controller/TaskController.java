@@ -1,6 +1,6 @@
 package com.task.tracker.tasktrackerapp.controller;
 
-import com.task.tracker.tasktrackerapp.Utility.AuthUtility;
+import com.task.tracker.tasktrackerapp.utility.AuthUtility;
 import com.task.tracker.tasktrackerapp.dto.TaskDTO;
 import com.task.tracker.tasktrackerapp.enums.TaskStatus;
 import com.task.tracker.tasktrackerapp.service.TaskService;

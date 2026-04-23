@@ -31,6 +31,7 @@ public class CognitoAuthService {
     private String clientSecret;
 
     private final CognitoIdentityProviderClient cognitoClient;
+    private static final String EMAIL_ATTRIBUTE = "email";
 
     public CognitoAuthService(CognitoIdentityProviderClient cognitoClient) {
         this.cognitoClient = cognitoClient;
@@ -86,7 +87,7 @@ public class CognitoAuthService {
         try  {
 
             AttributeType emailAttribute = AttributeType.builder()
-                    .name("email")
+                    .name(EMAIL_ATTRIBUTE)
                     .value(email)
                     .build();
 
@@ -356,8 +357,8 @@ public class CognitoAuthService {
             }
 
             // Extract email
-            if (jsonNode.has("email")) {
-                email = jsonNode.get("email").asText();
+            if (jsonNode.has(EMAIL_ATTRIBUTE)) {
+                email = jsonNode.get(EMAIL_ATTRIBUTE).asText();
             }
 
             // Extract sub (Cognito unique identifier)

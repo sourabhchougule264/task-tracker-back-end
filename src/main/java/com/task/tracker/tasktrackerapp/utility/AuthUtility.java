@@ -1,4 +1,4 @@
-package com.task.tracker.tasktrackerapp.Utility;
+package com.task.tracker.tasktrackerapp.utility;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
