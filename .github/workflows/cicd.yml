@@ -19,22 +19,35 @@ jobs:
       - name: Build Project
         run: mvn clean install
       - name: SonarQube Analysis
-        run: mvn sonar:sonar -Dsonar.projectKey=sourabhchougule264_task-tracker-back-end -Dsonar.host.url=https://sonarcloud.io -Dsonar.token=${{ secrets.SONAR_TOKEN }} -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: mvn sonar:sonar -Dsonar.projectKey=sourabhchougule264_task-tracker-back-end -Dsonar.host.url=https://sonarcloud.io -Dsonar.token="$SONAR_TOKEN" -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
       - name: Log in to Docker Hub
-        run: docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+        env:
+            DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+            DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
       - name: Build Docker Image
-        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/tasktrackerapp:latest .
+        env:
+            DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        run: docker build -t "$DOCKER_USERNAME"/tasktrackerapp:latest .
       - name: Publish Docker Image to Docker Hub
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/tasktrackerapp:latest
+        env:
+            DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        run: docker push "$DOCKER_USERNAME"/tasktrackerapp:latest
 
   deploy:
     needs: build
     runs-on: [aws-ec-task-tracker]
     steps:
       - name: Pull Docker Image from Docker Hub
-        run: docker pull ${{ secrets.DOCKER_USERNAME }}/tasktrackerapp:latest
+        env:
+            DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        run: docker pull "$DOCKER_USERNAME"/tasktrackerapp:latest
       - name: Run Docker Container
+        env:
+            DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
         run: |
           docker stop tasktrackerapp || true
           docker rm tasktrackerapp || true
-          docker run -d --name tasktrackerapp -p 8080:8080 ${{ secrets.DOCKER_USERNAME }}/tasktrackerapp:latest
+          docker run -d --name tasktrackerapp -p 8080:8080 "$DOCKER_USERNAME"/tasktrackerapp:latest
