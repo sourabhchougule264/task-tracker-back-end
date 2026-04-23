@@ -158,4 +158,109 @@ public class AuthControllerTest {
                 .andExpect(jsonPath("$.status").value("UP"))
                 .andExpect(jsonPath("$.service").value("Authentication Service"));
     }
+
+    @Test
+    @DisplayName("POST /auth/login - With null idToken")
+    @WithMockUser
+    void login_WithNullIdToken() throws Exception {
+        AuthResponse responseWithoutIdToken = AuthResponse.builder()
+                .accessToken("access-token")
+                .idToken(null)
+                .refreshToken("refresh-token")
+                .message("Success")
+                .build();
+
+        when(cognitoAuthService.authenticate(anyString(), anyString())).thenReturn(responseWithoutIdToken);
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(authRequest)))
+                .andExpect(status().isOk());
+
+        // syncUserToDatabase should not be called when idToken is null
+        verify(cognitoAuthService, never()).syncUserToDatabase(anyString(), any());
+    }
+
+    @Test
+    @DisplayName("POST /auth/login - With syncUserToDatabase exception")
+    @WithMockUser
+    void login_SyncUserToDatabaseFails() throws Exception {
+        when(cognitoAuthService.authenticate(anyString(), anyString())).thenReturn(authResponse);
+        doThrow(new RuntimeException("Database sync failed"))
+                .when(cognitoAuthService).syncUserToDatabase(anyString(), any());
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(authRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").value("access-token"));
+
+        verify(cognitoAuthService, times(1)).syncUserToDatabase(eq("id-token"), any());
+    }
+
+    @Test
+    @DisplayName("POST /auth/refresh - Success")
+    @WithMockUser
+    void refreshToken_Success() throws Exception {
+        Map<String, String> request = Map.of("refreshToken", "refresh-token-value");
+
+        when(cognitoAuthService.refreshToken(anyString())).thenReturn(authResponse);
+
+        mockMvc.perform(post("/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").value("access-token"))
+                .andExpect(jsonPath("$.refreshToken").value("refresh-token"));
+
+        verify(cognitoAuthService, times(1)).refreshToken("refresh-token-value");
+    }
+
+    @Test
+    @DisplayName("POST /auth/remove-role - Access Denied for non-admin")
+    @WithMockUser(roles = "USER")
+    void removeRole_AccessDenied() throws Exception {
+        Map<String, String> request = Map.of("username", "testuser", "role", "TASK_CREATOR");
+
+        mockMvc.perform(post("/auth/remove-role")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("POST /auth/remove-role - Success for Admin")
+    @WithMockUser(roles = "ADMIN")
+    void removeRole_Success() throws Exception {
+        Map<String, String> request = Map.of("username", "testuser", "role", "TASK_CREATOR");
+
+        mockMvc.perform(post("/auth/remove-role")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.role").value("TASK_CREATOR"));
+
+        verify(cognitoAuthService, times(1)).removeUserFromGroup("testuser", "TASK_CREATOR");
+    }
+
+    @Test
+    @DisplayName("POST /auth/confirm-forgot-password - Success")
+    @WithMockUser
+    void confirmForgotPassword_Success() throws Exception {
+        Map<String, String> request = Map.of(
+                "username", "testuser",
+                "confirmationCode", "123456",
+                "newPassword", "NewPassword123!"
+        );
+
+        doNothing().when(cognitoAuthService).confirmForgotPassword(anyString(), anyString(), anyString());
+
+        mockMvc.perform(post("/auth/confirm-forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Password reset successfully. You can now login with your new password."));
+
+        verify(cognitoAuthService, times(1)).confirmForgotPassword("testuser", "123456", "NewPassword123!");
+    }
 }
