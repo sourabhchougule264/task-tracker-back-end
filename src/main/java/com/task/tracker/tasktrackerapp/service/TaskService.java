@@ -177,7 +177,7 @@ public class TaskService {
     @Transactional
     public TaskDTO assignTaskToUser(Long taskId, Long userId) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new RuntimeException("Task not found with id: " + taskId));
+                .orElseThrow(() -> new RuntimeException(TASK_NOT_FOUND_MESSAGE + taskId));
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + userId));
