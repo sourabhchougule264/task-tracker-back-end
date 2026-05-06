@@ -30,7 +30,7 @@ jobs:
       - name: Build Docker Image
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-        run: docker build -t "$DOCKER_USERNAME"/tasktrackerapp:${{ github.sha }}
+        run: docker build -t "$DOCKER_USERNAME"/tasktrackerapp:${{ github.sha }} .
       - name: Publish Docker Image to Docker Hub
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
