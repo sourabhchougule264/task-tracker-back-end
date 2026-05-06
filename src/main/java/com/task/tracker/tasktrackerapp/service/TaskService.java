@@ -190,7 +190,7 @@ public class TaskService {
     @Transactional
     public TaskDTO assignTaskToUserByUsername(Long taskId, String username) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new RuntimeException("Task not found with id: " + taskId));
+                .orElseThrow(() -> new RuntimeException(TASK_NOT_FOUND_MESSAGE + taskId));
 
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found with username: " + username));
@@ -203,7 +203,7 @@ public class TaskService {
     @Transactional
     public TaskDTO updateTaskStatus(Long taskId, TaskStatus status, Authentication authentication) {
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new RuntimeException("Task not found with id: " + taskId));
+                .orElseThrow(() -> new RuntimeException(TASK_NOT_FOUND_MESSAGE + taskId));
 
         // Check if user has permission to update task status
         if (!authorizationService.canUpdateTaskStatus(task, authentication)) {
@@ -223,7 +223,7 @@ public class TaskService {
     @Transactional
     public void deleteTask(Long id) {
         if (!taskRepository.existsById(id)) {
-            throw new RuntimeException("Task not found with id: " + id);
+            throw new RuntimeException(TASK_NOT_FOUND_MESSAGE + id);
         }
         taskRepository.deleteById(id);
     }
