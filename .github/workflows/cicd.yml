@@ -30,11 +30,11 @@ jobs:
       - name: Build Docker Image
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-        run: docker build -t "$DOCKER_USERNAME"/tasktrackerapp:latest .
+        run: docker build -t "$DOCKER_USERNAME"/tasktrackerapp:${{ github.sha }}
       - name: Publish Docker Image to Docker Hub
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-        run: docker push "$DOCKER_USERNAME"/tasktrackerapp:latest
+        run: docker push "$DOCKER_USERNAME"/tasktrackerapp:${{ github.sha }}
 
   deploy:
     needs: build
@@ -69,4 +69,4 @@ jobs:
             -e COGNITO_CLIENT_ID="$COGNITO_CLIENT_ID" \
             -e COGNITO_SECRET="$COGNITO_SECRET" \
             -e POSTGRES_DB_PASSWORD="$POSTGRES_DB_PASSWORD" \
-            "$DOCKER_USERNAME"/tasktrackerapp:latest
+            "$DOCKER_USERNAME"/tasktrackerapp:${{ github.sha }}
