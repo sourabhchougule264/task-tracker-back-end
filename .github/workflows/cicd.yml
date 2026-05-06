@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: [ubuntu-latest]
+    runs-on: [ ubuntu-latest ]
     steps:
       - name: checkout sourace
         uses: actions/checkout@v3
@@ -24,51 +24,50 @@ jobs:
         run: mvn sonar:sonar -Dsonar.projectKey=sourabhchougule264_task-tracker-back-end -Dsonar.host.url=https://sonarcloud.io -Dsonar.token="$SONAR_TOKEN" -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
       - name: Log in to Docker Hub
         env:
-            DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-            DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
         run: docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
       - name: Build Docker Image
         env:
-            DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
         run: docker build -t "$DOCKER_USERNAME"/tasktrackerapp:latest .
       - name: Publish Docker Image to Docker Hub
         env:
-            DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
         run: docker push "$DOCKER_USERNAME"/tasktrackerapp:latest
 
   deploy:
     needs: build
-    runs-on: [aws-ec-task-tracker]
+    runs-on: [ aws-ec-task-tracker ]
     steps:
       - name: Pull Docker Image from Docker Hub
         env:
-            DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
         run: docker pull "$DOCKER_USERNAME"/tasktrackerapp:latest
       - name: Run Docker Container with SSM Secrets
         env:
             DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
             AWS_REGION: ap-south-1
         run: |
-          echo "Fetching configuration from AWS SSM Parameter Store..."
-          
-          #Fetching parameters from AWS SSM Parameter Store using IAM role attached to EC2 instance
-          AWS_ACCESS_KEY_ID=$(aws ssm get-parameter --name "/tasktracker/dev/aws_accesskeyid" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
-          AWS_SECRET_ACCESS_KEY=$(aws ssm get-parameter --name "/tasktracker/dev/aws_secretkey" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
-          COGNITO_CLIENT_ID=$(aws ssm get-parameter --name "/tasktracker/dev/cognito_clientid" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
-          COGNITO_SECRET=$(aws ssm get-parameter --name "/tasktracker/dev/cognito_secret" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
-          POSTGRES_DB_PASSWORD=$(aws ssm get-parameter --name "/tasktracker/dev/postgres_password" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
-          
-          echo "Stopping old container..."
-          docker stop tasktrackerapp || true
-          docker rm tasktrackerapp || true
-          
-          echo "Starting new container with injected properties in configuration..."
-          docker run -d\
-            --name tasktrakcerapp\
-            -p 8080:8080\
-            -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID"\
-            -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY"\
-            -e COGNITO_CLIENT_ID="$COGNITO_CLIENT_ID"\
-            -e COGNITO_SECRET="$COGNITO_SECRET"\
-            -e POSTGRES_DB_PASSWORD="$POSTGRES_DB_PASSWORD"\
-            "$DOCKER_USERNAME"/tasktrackerapp:latest
+            echo "Fetching configuration from AWS SSM Parameter Store..."
+            
+            AWS_ACCESS_KEY_ID=$(aws ssm get-parameter --name "/tasktracker/dev/aws_accesskeyid" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
+            AWS_SECRET_ACCESS_KEY=$(aws ssm get-parameter --name "/tasktracker/dev/aws_secretkey" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
+            COGNITO_CLIENT_ID=$(aws ssm get-parameter --name "/tasktracker/dev/cognito_clientid" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
+            COGNITO_SECRET=$(aws ssm get-parameter --name "/tasktracker/dev/cognito_secret" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
+            POSTGRES_DB_PASSWORD=$(aws ssm get-parameter --name "/tasktracker/dev/postgres_password" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
+            
+            echo "Stopping old container..."
+            docker stop tasktrackerapp || true
+            docker rm tasktrackerapp || true
+            
+            echo "Starting new container with injected properties..."
+            docker run -d \
+              --name tasktrackerapp \
+              -p 8080:8080 \
+              -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
+              -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
+              -e COGNITO_CLIENT_ID="$COGNITO_CLIENT_ID" \
+              -e COGNITO_SECRET="$COGNITO_SECRET" \
+              -e POSTGRES_DB_PASSWORD="$POSTGRES_DB_PASSWORD" \
+              "$DOCKER_USERNAME"/tasktrackerapp:latest
