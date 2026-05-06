@@ -43,7 +43,7 @@ jobs:
       - name: Pull Docker Image from Docker Hub
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-        run: docker pull "$DOCKER_USERNAME"/tasktrackerapp:${{ github.sha }} .
+        run: docker pull "$DOCKER_USERNAME"/tasktrackerapp:${{ github.sha }}
       - name: Run Docker Container with SSM Secrets
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
