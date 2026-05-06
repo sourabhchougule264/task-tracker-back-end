@@ -50,8 +50,6 @@ jobs:
           AWS_REGION: ap-south-1
         run: |
           echo "Fetching configuration from AWS SSM Parameter Store..."
-          
-          # 1. Fetch parameters 
           AWS_ACCESS_KEY_ID=$(aws ssm get-parameter --name "/tasktracker/dev/aws_accesskeyid" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
           AWS_SECRET_ACCESS_KEY=$(aws ssm get-parameter --name "/tasktracker/dev/aws_secretkey" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
           COGNITO_CLIENT_ID=$(aws ssm get-parameter --name "/tasktracker/dev/cognito_clientid" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
@@ -59,12 +57,10 @@ jobs:
           POSTGRES_DB_PASSWORD=$(aws ssm get-parameter --name "/tasktracker/dev/postgres_password" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
           
           echo "Stopping old container..."
-          # 2. Stop the correctly spelled container
           docker stop tasktrackerapp || true
           docker rm tasktrackerapp || true
           
           echo "Starting new container with injected properties..."
-          # 3. Run the container (Notice: --name tasktrackerapp is spelled correctly!)
           docker run -d \
             --name tasktrackerapp \
             -p 8080:8080 \
