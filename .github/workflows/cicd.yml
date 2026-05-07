@@ -75,6 +75,13 @@ jobs:
           IMAGE_TAG=$IMAGE_TAG
           EOF
           
+          echo "Ensuring Docker Compose is installed..."
+          if ! command -v docker-compose &> /dev/null; then
+              echo "Docker Compose not found. Installing the latest version..."
+              sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+              sudo chmod +x /usr/local/bin/docker-compose
+          fi
+          
           echo "Starting the stack with Docker Compose..."
           # Using hyphenated docker-compose for older EC2 Docker installations
           docker-compose pull
