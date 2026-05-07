@@ -82,6 +82,11 @@ jobs:
               sudo chmod +x /usr/local/bin/docker-compose
           fi
           
+          # Add these two lines to kill the old container
+          echo "Cleaning up the old standalone container..."
+          docker stop tasktrackerapp || true
+          docker rm tasktrackerapp || true
+          
           echo "Starting the stack with Docker Compose..."
           # Using hyphenated docker-compose for older EC2 Docker installations
           docker-compose pull
