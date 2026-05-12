@@ -2,7 +2,10 @@ package com.task.tracker.tasktrackerapp.entity;
 
 import com.task.tracker.tasktrackerapp.enums.TaskStatus;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 

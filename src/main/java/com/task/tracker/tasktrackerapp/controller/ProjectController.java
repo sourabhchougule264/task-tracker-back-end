@@ -1,8 +1,8 @@
 package com.task.tracker.tasktrackerapp.controller;
 
-import com.task.tracker.tasktrackerapp.utility.AuthUtility;
 import com.task.tracker.tasktrackerapp.dto.ProjectDTO;
 import com.task.tracker.tasktrackerapp.service.ProjectService;
+import com.task.tracker.tasktrackerapp.utility.AuthUtility;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameters;
 import io.swagger.v3.oas.annotations.media.Content;

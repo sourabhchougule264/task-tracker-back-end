@@ -19,8 +19,5 @@ public class UserDTO {
     private String firstName;
     private String lastName;
     private Boolean isActive;
-    private List<String> roles;  // User's Cognito groups/roles
-
-    // Note: Roles are managed by AWS Cognito Groups
-    // They are fetched from Cognito and included in the DTO
+    private List<String> roles;
 }
