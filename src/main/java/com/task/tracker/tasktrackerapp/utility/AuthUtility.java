@@ -4,7 +4,11 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 public class AuthUtility {
-    
+
+    private AuthUtility(){
+        throw new IllegalStateException("Utility class should not be instantiated");
+    }
+
     /**
      * Helper method to extract username from JWT authentication
      */

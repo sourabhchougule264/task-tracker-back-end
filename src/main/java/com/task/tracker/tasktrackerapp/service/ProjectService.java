@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -64,21 +63,21 @@ public class ProjectService {
     public List<ProjectDTO> getAllProjects() {
         return projectRepository.findAll().stream()
                 .map(this::convertToDTO)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Transactional(readOnly = true)
     public List<ProjectDTO> getProjectsByOwner(Long ownerId) {
         return projectRepository.findByOwnerId(ownerId).stream()
                 .map(this::convertToDTO)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Transactional(readOnly = true)
     public List<ProjectDTO> getProjectsByOwnerUsername(String username) {
         return projectRepository.findByOwnerUsername(username).stream()
                 .map(this::convertToDTO)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Transactional

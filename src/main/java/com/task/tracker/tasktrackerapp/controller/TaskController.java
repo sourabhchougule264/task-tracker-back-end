@@ -992,7 +992,6 @@ public class TaskController {
             @PathVariable TaskStatus status,
             Authentication authentication) {
 
-        String username = AuthUtility.getUsernameFromAuth(authentication);
         TaskDTO updatedTask = taskService.updateTaskStatus(taskId, status, authentication);
         return ResponseEntity.ok(updatedTask);
     }
