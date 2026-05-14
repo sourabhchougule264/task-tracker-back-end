@@ -94,3 +94,6 @@ jobs:
           
           # Clean up the .env file after starting for security
           rm .env
+          
+          echo "Refreshing Cloudflare Tunnel and updating S3 config..."
+          bash /home/ubuntu/start_tunnel.sh
