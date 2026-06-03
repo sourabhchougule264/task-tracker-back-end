@@ -5,6 +5,7 @@ import com.task.tracker.tasktrackerapp.entity.Project;
 import com.task.tracker.tasktrackerapp.entity.Task;
 import com.task.tracker.tasktrackerapp.entity.User;
 import com.task.tracker.tasktrackerapp.enums.TaskStatus;
+import com.task.tracker.tasktrackerapp.event.TaskAssignedEvent;
 import com.task.tracker.tasktrackerapp.repository.ProjectRepository;
 import com.task.tracker.tasktrackerapp.repository.TaskRepository;
 import com.task.tracker.tasktrackerapp.repository.UserRepository;
@@ -13,6 +14,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -24,6 +26,7 @@ public class TaskService {
     private final UserRepository userRepository;
     private final ProjectRepository projectRepository;
     private final AuthorizationService authorizationService;
+    private final TaskEventProducerService taskEventProducerService;
     private static final String TASK_NOT_FOUND_MESSAGE = "Task not found with id: ";
     private static final String PROJECT_NOT_FOUND_MESSAGE = "Project not found with id: ";
     private static final String USER_NOT_FOUND_MESSAGE = "Assigned user not found with id: ";
@@ -184,6 +187,9 @@ public class TaskService {
 
         task.setAssignedUser(user);
         Task updatedTask = taskRepository.save(task);
+
+        publishTaskAssignedEvent(updatedTask);
+
         return convertToDTO(updatedTask);
     }
 
@@ -197,6 +203,10 @@ public class TaskService {
 
         task.setAssignedUser(user);
         Task updatedTask = taskRepository.save(task);
+
+        // Publish task assigned event
+        publishTaskAssignedEvent(updatedTask);
+
         return convertToDTO(updatedTask);
     }
 
@@ -241,5 +251,30 @@ public class TaskService {
                 .projectId(task.getProject() != null ? task.getProject().getId() : null)
                 .projectName(task.getProject() != null ? task.getProject().getName() : null)
                 .build();
+    }
+
+    /**
+     * Publish task assigned event to Kafka for email notifications
+     */
+    private void publishTaskAssignedEvent(Task task) {
+        if (task.getAssignedUser() == null) {
+            return; // No user assigned, don't publish event
+        }
+
+        TaskAssignedEvent event = TaskAssignedEvent.builder()
+                .taskId(task.getId())
+                .taskDescription(task.getDescription())
+                .assignedUserId(task.getAssignedUser().getId())
+                .assignedUsername(task.getAssignedUser().getUsername())
+                .assignedUserEmail(task.getAssignedUser().getEmail())
+                .assignedUserFirstName(task.getAssignedUser().getFirstName())
+                .ownerUsername(task.getOwner().getUsername())
+                .projectId(task.getProject() != null ? task.getProject().getId() : null)
+                .projectName(task.getProject() != null ? task.getProject().getName() : null)
+                .dueDate(task.getDueDate() != null ? task.getDueDate().toString() : null)
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        taskEventProducerService.publishTaskAssignedEvent(event);
     }
 }
