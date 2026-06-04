@@ -32,9 +32,7 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      # EC2-SPECIFIC: Update this to your EC2 private IP
-      # To find private IP: aws ec2 describe-instances --instance-ids i-xxxxx --query 'Reservations[0].Instances[0].PrivateIpAddress'
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://${KAFKA_EC2_PRIVATE_IP:localhost}:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://${KAFKA_EC2_PRIVATE_IP:-localhost}:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
@@ -87,27 +85,27 @@ services:
     ports:
       - "8080:8080"
     environment:
-      # AWS Credentials (from GitHub Actions or EC2 IAM role)
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - COGNITO_CLIENT_ID=${COGNITO_CLIENT_ID}
-      - COGNITO_SECRET=${COGNITO_SECRET}
-      - POSTGRES_DB_PASSWORD=${POSTGRES_DB_PASSWORD}
+      # AWS and Cognito Configuration
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      COGNITO_CLIENT_ID: ${COGNITO_CLIENT_ID}
+      COGNITO_SECRET: ${COGNITO_SECRET}
+      POSTGRES_DB_PASSWORD: ${POSTGRES_DB_PASSWORD}
       # Kafka Configuration (Docker internal network)
-      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-      - SPRING_KAFKA_PRODUCER_BOOTSTRAP_SERVERS=kafka:29092
-      - SPRING_KAFKA_CONSUMER_BOOTSTRAP_SERVERS=kafka:29092
-      - SPRING_KAFKA_CONSUMER_GROUP_ID=task-tracker-group
-      - SPRING_KAFKA_PRODUCER_ACKS=all
-      - SPRING_KAFKA_PRODUCER_RETRIES=3
-      - SPRING_KAFKA_PRODUCER_COMPRESSION_TYPE=snappy
-      - SPRING_KAFKA_CONSUMER_MAX_POLL_RECORDS=100
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_KAFKA_PRODUCER_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_KAFKA_CONSUMER_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_KAFKA_CONSUMER_GROUP_ID: task-tracker-group
+      SPRING_KAFKA_PRODUCER_ACKS: all
+      SPRING_KAFKA_PRODUCER_RETRIES: 3
+      SPRING_KAFKA_PRODUCER_COMPRESSION_TYPE: snappy
+      SPRING_KAFKA_CONSUMER_MAX_POLL_RECORDS: 100
       # Email Configuration (for notifications)
-      - MAIL_HOST=${MAIL_HOST}
-      - MAIL_PORT=${MAIL_PORT}
-      - MAIL_USERNAME=${MAIL_USERNAME}
-      - MAIL_PASSWORD=${MAIL_PASSWORD}
-      - MAIL_FROM=${MAIL_FROM}
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM}
     networks:
       - monitoring
     healthcheck:
@@ -140,27 +138,20 @@ services:
     networks:
       - monitoring
     environment:
-      # 1. Enable Generic OAuth (Cognito)
       - GF_AUTH_GENERIC_OAUTH_ENABLED=true
       - GF_AUTH_GENERIC_OAUTH_NAME=Cognito
       - GF_AUTH_GENERIC_OAUTH_ALLOW_SIGN_UP=true
-
-      # 2. Use Cognito credentials
       - GF_AUTH_GENERIC_OAUTH_CLIENT_ID=${COGNITO_CLIENT_ID}
       - GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET=${COGNITO_SECRET}
       - GF_AUTH_GENERIC_OAUTH_SCOPES=openid profile email
-
-      # 3. Use current Tunnel URL
-      # MUST update this variable if tunnel URL changes!
       - GF_SERVER_ROOT_URL=https://indicators-assuming-constraints-bar.trycloudflare.com/
-
-      # 4. Cognito Endpoints
       - GF_AUTH_GENERIC_OAUTH_AUTH_URL=https://ap-south-1mdj3p4bl8.auth.ap-south-1.amazoncognito.com/oauth2/authorize
       - GF_AUTH_GENERIC_OAUTH_TOKEN_URL=https://ap-south-1mdj3p4bl8.auth.ap-south-1.amazoncognito.com/oauth2/token
       - GF_AUTH_GENERIC_OAUTH_API_URL=https://ap-south-1mdj3p4bl8.auth.ap-south-1.amazoncognito.com/oauth2/userInfo
 
 networks:
   monitoring:
+    driver: bridge # Explicitly defined network type to avoid runtime parsing issues
 
 volumes:
   prometheus_data:
