@@ -98,8 +98,12 @@ jobs:
           MAIL_PASSWORD=$(aws ssm get-parameter --name "/tasktracker/dev/mail_password" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
           MAIL_FROM=$(aws ssm get-parameter --name "/tasktracker/dev/mail_from" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
           
-          EC2_PRIVATE_IP=$(aws ec2 describe-instances \
-            --instance-ids "$(ec2-metadata --instance-id | cut -d ' ' -f 2)" \
+          # Get EC2 Private IP using native IMDSv2 curl tokens
+          TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 60")
+          INSTANCE_ID=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
+            
+            EC2_PRIVATE_IP=$(aws ec2 describe-instances \
+            --instance-ids "$INSTANCE_ID" \
             --region "$AWS_REGION" \
             --query 'Reservations[0].Instances[0].PrivateIpAddress' \
             --output text)
