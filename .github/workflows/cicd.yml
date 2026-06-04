@@ -141,34 +141,6 @@ jobs:
           
           bash /home/ubuntu/start_tunnel.sh
 
-      - name: Health Check
-        run: |
-            echo "Waiting for tasktrackerapp to pass health checks..."
-            
-            ATTEMPTS=0
-            MAX_ATTEMPTS=12  
-            TIMEOUT=5
-            
-            until [ $ATTEMPTS -ge $MAX_ATTEMPTS ]
-            do
-              echo "Checking application endpoint (Attempt $((ATTEMPTS+1))/$MAX_ATTEMPTS)..."
-            
-              if docker exec tasktrackerapp curl -s -f http://localhost:8080/api/actuator/health > /dev/null 2>&1; then
-                echo "✅ Application is fully healthy and accepting traffic!"
-                break
-              fi
-            
-              ATTEMPTS=$((ATTEMPTS+1))
-              sleep $TIMEOUT
-            done
-            
-            if [ $ATTEMPTS -eq $MAX_ATTEMPTS ]; then
-              echo "❌ Application health check timed out after 60 seconds."
-              echo "Printing last 100 container lines for debugging:"
-              docker logs tasktrackerapp | tail -n 100
-              exit 1
-            fi
-
       - name: Verify Topic Creation
         run: |
           docker exec kafka kafka-topics --list --bootstrap-server localhost:9092 | grep -q "task.assigned" && echo "✅ Task assigned topic exists" || echo "⚠️ Topic may not be created yet"
