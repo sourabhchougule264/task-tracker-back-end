@@ -70,7 +70,7 @@ public class EmailService {
      */
     private String buildEmailBody(TaskAssignedEvent event) {
         // Replace this with your actual application URL (e.g., your Cloudflare tunnel or EC2 domain)
-        String appUrl = "https://indicators-assuming-constraints-bar.trycloudflare.com/";
+        String appUrl = "https://d2idups4eyhbd8.cloudfront.net/dashboard/all-tasks/";
 
         StringBuilder body = new StringBuilder();
         body.append("<p>Hi ").append(event.getAssignedUsername()).append(",</p>");
