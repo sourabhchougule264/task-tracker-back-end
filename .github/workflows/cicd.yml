@@ -6,6 +6,14 @@ on:
   pull_request:
     branches: [ master ]
   workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: 'Specific Commit SHA to deploy (Leave blank to use latest master)'
+        required: false
+        default: ''
+
+env:
+  TARGET_COMMIT: ${{ github.event.inputs.commit_sha || github.sha }}
 
 jobs:
   build:
@@ -13,6 +21,9 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v3
+        with:
+          ref: ${{ env.TARGET_COMMIT }}
+
       - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
@@ -36,19 +47,22 @@ jobs:
             -Dsonar.host.url=https://sonarcloud.io \
             -Dsonar.token="$SONAR_TOKEN" \
             -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+
       - name: Log in to Docker Hub
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
         run: docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
+
       - name: Build Docker Image
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-        run: docker build -t "$DOCKER_USERNAME"/tasktrackerapp:${{ github.sha }} .
+        run: docker build -t "$DOCKER_USERNAME"/tasktrackerapp:${{ env.TARGET_COMMIT }} .
+
       - name: Publish Docker Image to Docker Hub
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-        run: docker push "$DOCKER_USERNAME"/tasktrackerapp:${{ github.sha }}
+        run: docker push "$DOCKER_USERNAME"/tasktrackerapp:${{ env.TARGET_COMMIT }}
 
   deploy:
     needs: build
@@ -56,90 +70,76 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v3
+        with:
+          ref: ${{ env.TARGET_COMMIT }}
+
       - name: Pull Docker Image from Docker Hub
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-        run: docker pull "$DOCKER_USERNAME"/tasktrackerapp:${{ github.sha }}
+        run: docker pull "$DOCKER_USERNAME"/tasktrackerapp:${{ env.TARGET_COMMIT }}
+
       - name: Deploy via Docker Compose
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-          IMAGE_TAG: ${{ github.sha }}
+          IMAGE_TAG: ${{ env.TARGET_COMMIT }}
           AWS_REGION: ap-south-1
         run: |
-           echo "Fetching configuration from AWS SSM Parameter Store..."
-           
-           # Fetch all required variables from SSM
-           APP_AWS_ACCESS_KEY_ID=$(aws ssm get-parameter --name "/tasktracker/dev/aws_accesskeyid" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
-           APP_AWS_SECRET_ACCESS_KEY=$(aws ssm get-parameter --name "/tasktracker/dev/aws_secretkey" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
-           APP_COGNITO_CLIENT=$(aws ssm get-parameter --name "/tasktracker/dev/cognito_clientid" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
-           APP_COGNITO_SECRET=$(aws ssm get-parameter --name "/tasktracker/dev/cognito_secret" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
-           APP_POSTGRES_PWD=$(aws ssm get-parameter --name "/tasktracker/dev/postgres_password" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
-           
-           # Fetch Kafka Email Configuration from SSM
-           MAIL_HOST=$(aws ssm get-parameter --name "/tasktracker/dev/mail_host" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text 2>/dev/null || echo "smtp.gmail.com")
-           MAIL_PORT=$(aws ssm get-parameter --name "/tasktracker/dev/mail_port" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text 2>/dev/null || echo "587")
-           MAIL_USERNAME=$(aws ssm get-parameter --name "/tasktracker/dev/mail_username" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
-           MAIL_PASSWORD=$(aws ssm get-parameter --name "/tasktracker/dev/mail_password" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
-           MAIL_FROM=$(aws ssm get-parameter --name "/tasktracker/dev/mail_from" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
-           
-           # Get EC2 Private IP for Kafka configuration
-           EC2_PRIVATE_IP=$(aws ec2 describe-instances \
-             --instance-ids "$(ec2-metadata --instance-id | cut -d ' ' -f 2)" \
-             --region "$AWS_REGION" \
-             --query 'Reservations[0].Instances[0].PrivateIpAddress' \
-             --output text)
-           
-           echo "EC2 Private IP: $EC2_PRIVATE_IP"
-           
-           echo "Navigating to deployment directory..."
-           cd deploy/
-           
-           echo "Writing variables to .env file for Docker Compose..."
-           cat <<EOF > .env
-           AWS_ACCESS_KEY_ID=$APP_AWS_ACCESS_KEY_ID
-           AWS_SECRET_ACCESS_KEY=$APP_AWS_SECRET_ACCESS_KEY
-           COGNITO_CLIENT_ID=$APP_COGNITO_CLIENT
-           COGNITO_SECRET=$APP_COGNITO_SECRET
-           POSTGRES_DB_PASSWORD=$APP_POSTGRES_PWD
-           DOCKER_USERNAME=$DOCKER_USERNAME
-           IMAGE_TAG=$IMAGE_TAG
-           MAIL_HOST=$MAIL_HOST
-           MAIL_PORT=$MAIL_PORT
-           MAIL_USERNAME=$MAIL_USERNAME
-           MAIL_PASSWORD=$MAIL_PASSWORD
-           MAIL_FROM=$MAIL_FROM
-           KAFKA_EC2_PRIVATE_IP=$EC2_PRIVATE_IP
-           EOF
+          echo "Fetching configuration from AWS SSM Parameter Store..."
           
-          echo "Ensuring Docker Compose is installed..."
+          APP_AWS_ACCESS_KEY_ID=$(aws ssm get-parameter --name "/tasktracker/dev/aws_accesskeyid" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
+          APP_AWS_SECRET_ACCESS_KEY=$(aws ssm get-parameter --name "/tasktracker/dev/aws_secretkey" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
+          APP_COGNITO_CLIENT=$(aws ssm get-parameter --name "/tasktracker/dev/cognito_clientid" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
+          APP_COGNITO_SECRET=$(aws ssm get-parameter --name "/tasktracker/dev/cognito_secret" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
+          APP_POSTGRES_PWD=$(aws ssm get-parameter --name "/tasktracker/dev/postgres_password" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
+          
+          MAIL_HOST=$(aws ssm get-parameter --name "/tasktracker/dev/mail_host" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text 2>/dev/null || echo "smtp.gmail.com")
+          MAIL_PORT=$(aws ssm get-parameter --name "/tasktracker/dev/mail_port" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text 2>/dev/null || echo "587")
+          MAIL_USERNAME=$(aws ssm get-parameter --name "/tasktracker/dev/mail_username" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
+          MAIL_PASSWORD=$(aws ssm get-parameter --name "/tasktracker/dev/mail_password" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
+          MAIL_FROM=$(aws ssm get-parameter --name "/tasktracker/dev/mail_from" --region "$AWS_REGION" --with-decryption --query "Parameter.Value" --output text)
+          
+          EC2_PRIVATE_IP=$(aws ec2 describe-instances \
+            --instance-ids "$(ec2-metadata --instance-id | cut -d ' ' -f 2)" \
+            --region "$AWS_REGION" \
+            --query 'Reservations[0].Instances[0].PrivateIpAddress' \
+            --output text)
+          
+          echo "EC2 Private IP: $EC2_PRIVATE_IP"
+          cd deploy/
+          
+          cat <<EOF > .env
+          AWS_ACCESS_KEY_ID=$APP_AWS_ACCESS_KEY_ID
+          AWS_SECRET_ACCESS_KEY=$APP_AWS_SECRET_ACCESS_KEY
+          COGNITO_CLIENT_ID=$APP_COGNITO_CLIENT
+          COGNITO_SECRET=$APP_COGNITO_SECRET
+          POSTGRES_DB_PASSWORD=$APP_POSTGRES_PWD
+          DOCKER_USERNAME=$DOCKER_USERNAME
+          IMAGE_TAG=$IMAGE_TAG
+          MAIL_HOST=$MAIL_HOST
+          MAIL_PORT=$MAIL_PORT
+          MAIL_USERNAME=$MAIL_USERNAME
+          MAIL_PASSWORD=$MAIL_PASSWORD
+          MAIL_FROM=$MAIL_FROM
+          KAFKA_EC2_PRIVATE_IP=$EC2_PRIVATE_IP
+          EOF
+          
           if ! command -v docker-compose &> /dev/null; then
-              echo "Docker Compose not found. Installing the latest version..."
-              sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-              sudo chmod +x /usr/local/bin/docker-compose
+             sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+             sudo chmod +x /usr/local/bin/docker-compose
           fi
           
-          # Add these two lines to kill the old container
-          echo "Cleaning up the old standalone container..."
           docker stop tasktrackerapp || true
           docker rm tasktrackerapp || true
           
-          echo "Starting the stack with Docker Compose..."
-          # Using hyphenated docker-compose for older EC2 Docker installations
           docker-compose pull
           docker-compose up -d
-          
-          # Clean up the .env file after starting for security
           rm .env
           
-           echo "Refreshing Cloudflare Tunnel and updating S3 config..."
-           bash /home/ubuntu/start_tunnel.sh
+          bash /home/ubuntu/start_tunnel.sh
 
       - name: Health Check
         run: |
-          echo "Waiting for services to be healthy..."
           sleep 30
-          
-          # Check if app is running
           if docker exec tasktrackerapp curl -f http://localhost:8080/actuator/health > /dev/null 2>&1; then
             echo "✅ Application is healthy"
           else
@@ -147,29 +147,18 @@ jobs:
             docker logs tasktrackerapp | tail -50
             exit 1
           fi
-          
-          # Check if Kafka is running
-          if docker exec kafka kafka-broker-api-versions --bootstrap-server localhost:9092 > /dev/null 2>&1; then
-            echo "✅ Kafka is healthy"
-          else
-            echo "⚠️ Kafka health check failed (may still be starting)"
-          fi
 
       - name: Verify Topic Creation
         run: |
-          echo "Verifying Kafka topics..."
           docker exec kafka kafka-topics --list --bootstrap-server localhost:9092 | grep -q "task.assigned" && echo "✅ Task assigned topic exists" || echo "⚠️ Topic may not be created yet"
 
       - name: Notify Deployment Success
         if: success()
         run: |
-          echo "✅ Deployment successful!"
-          echo "Application URL: http://${{ env.EC2_IP }}:8080"
-          echo "Kafka UI: http://${{ env.EC2_IP }}:8081"
+          echo "✅ Deployment successful for commit: ${{ env.TARGET_COMMIT }}"
 
       - name: Notify Deployment Failure
         if: failure()
         run: |
           echo "❌ Deployment failed!"
-          echo "Check logs above for details"
           exit 1
