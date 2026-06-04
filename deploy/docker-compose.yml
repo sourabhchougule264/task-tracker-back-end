@@ -1,20 +1,124 @@
 services:
-  tasktrackerapp:
-    image: ${DOCKER_USERNAME}/tasktrackerapp:${IMAGE_TAG}
-    ports:
-      - "8080:8080"
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.1
+    container_name: zookeeper
+    restart: always
     environment:
-      # These variables will be injected by GitHub Actions runner
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - COGNITO_CLIENT_ID=${COGNITO_CLIENT_ID}
-      - COGNITO_SECRET=${COGNITO_SECRET}
-      - POSTGRES_DB_PASSWORD=${POSTGRES_DB_PASSWORD}
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SYNC_LIMIT: 5
+      ZOOKEEPER_INIT_LIMIT: 10
+    ports:
+      - "2181:2181"
+    volumes:
+      - zk-data:/var/lib/zookeeper/data
+      - zk-logs:/var/lib/zookeeper/log
+    networks:
+      - monitoring
+    healthcheck:
+      test: echo ruok | nc localhost 2181
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.1
+    container_name: kafka
+    restart: always
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://${KAFKA_EC2_PRIVATE_IP:-localhost}:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      # Performance tuning for EC2
+      KAFKA_NUM_NETWORK_THREADS: 8
+      KAFKA_NUM_IO_THREADS: 8
+      KAFKA_SOCKET_SEND_BUFFER_BYTES: 102400
+      KAFKA_SOCKET_RECEIVE_BUFFER_BYTES: 102400
+      KAFKA_SOCKET_REQUEST_MAX_BYTES: 104857600
+      # Message retention (7 days or 1GB)
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_RETENTION_BYTES: 1073741824
+      # Compression for network efficiency
+      KAFKA_COMPRESSION_TYPE: snappy
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+      - kafka-logs:/var/log/kafka
+    networks:
+      - monitoring
+    healthcheck:
+      test: kafka-broker-api-versions --bootstrap-server localhost:9092
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    restart: always
+    depends_on:
+      - kafka
+    ports:
+      - "8081:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: production
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
     networks:
       - monitoring
 
+  tasktrackerapp:
+    image: ${DOCKER_USERNAME}/tasktrackerapp:${IMAGE_TAG}
+    container_name: tasktrackerapp
+    restart: always
+    depends_on:
+      kafka:
+        condition: service_healthy
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      # AWS and Cognito Configuration
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      COGNITO_CLIENT_ID: ${COGNITO_CLIENT_ID}
+      COGNITO_SECRET: ${COGNITO_SECRET}
+      POSTGRES_DB_PASSWORD: ${POSTGRES_DB_PASSWORD}
+      # Kafka Configuration (Docker internal network)
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_KAFKA_PRODUCER_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_KAFKA_CONSUMER_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_KAFKA_CONSUMER_GROUP_ID: task-tracker-group
+      SPRING_KAFKA_PRODUCER_ACKS: all
+      SPRING_KAFKA_PRODUCER_RETRIES: 3
+      SPRING_KAFKA_PRODUCER_COMPRESSION_TYPE: none
+      SPRING_KAFKA_CONSUMER_MAX_POLL_RECORDS: 100
+      # Email Configuration (for notifications)
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM}
+    networks:
+      - monitoring
+    healthcheck:
+      test: curl -f http://localhost:8080/api/actuator/health || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
   prometheus:
     image: prom/prometheus:latest
+    container_name: prometheus
+    restart: always
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
@@ -25,6 +129,8 @@ services:
 
   grafana:
     image: grafana/grafana:latest
+    container_name: grafana
+    restart: always
     volumes:
       - grafana_data:/var/lib/grafana
     ports:
@@ -32,28 +138,29 @@ services:
     networks:
       - monitoring
     environment:
-      # 1. Enable Generic OAuth (Cognito)
       - GF_AUTH_GENERIC_OAUTH_ENABLED=true
       - GF_AUTH_GENERIC_OAUTH_NAME=Cognito
       - GF_AUTH_GENERIC_OAUTH_ALLOW_SIGN_UP=true
-
-      # 2. Use Cognito credentials
       - GF_AUTH_GENERIC_OAUTH_CLIENT_ID=${COGNITO_CLIENT_ID}
       - GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET=${COGNITO_SECRET}
       - GF_AUTH_GENERIC_OAUTH_SCOPES=openid profile email
-
-      # 3. Use current Tunnel URL
-      # MUST update this variable if tunnel URL changes!
       - GF_SERVER_ROOT_URL=https://indicators-assuming-constraints-bar.trycloudflare.com/
-
-      # 4. Cognito Endpoints
       - GF_AUTH_GENERIC_OAUTH_AUTH_URL=https://ap-south-1mdj3p4bl8.auth.ap-south-1.amazoncognito.com/oauth2/authorize
       - GF_AUTH_GENERIC_OAUTH_TOKEN_URL=https://ap-south-1mdj3p4bl8.auth.ap-south-1.amazoncognito.com/oauth2/token
       - GF_AUTH_GENERIC_OAUTH_API_URL=https://ap-south-1mdj3p4bl8.auth.ap-south-1.amazoncognito.com/oauth2/userInfo
 
 networks:
   monitoring:
+    driver: bridge # Explicitly defined network type to avoid runtime parsing issues
 
 volumes:
   prometheus_data:
   grafana_data:
+  kafka-data:
+    driver: local
+  kafka-logs:
+    driver: local
+  zk-data:
+    driver: local
+  zk-logs:
+    driver: local

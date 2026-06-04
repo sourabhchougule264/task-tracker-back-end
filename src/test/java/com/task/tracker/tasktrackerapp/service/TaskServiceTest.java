@@ -38,6 +38,8 @@ class TaskServiceTest {
     private ProjectRepository projectRepository;
     @Mock
     private AuthorizationService authorizationService;
+    @Mock
+    private TaskEventProducerService taskEventProducerService;
 
     @InjectMocks
     private TaskService taskService;
@@ -51,7 +53,7 @@ class TaskServiceTest {
     @BeforeEach
     void setUp() {
         mockOwner = User.builder().id(1L).username("ownerUser").build();
-        mockAssignee = User.builder().id(2L).username("assigneeUser").build();
+        mockAssignee = User.builder().id(2L).username("assigneeUser").email("assignee@example.com").firstName("John").build();
         mockProject = Project.builder().id(10L).name("Test Project").build();
 
         mockTask = Task.builder()
@@ -92,19 +94,15 @@ class TaskServiceTest {
         @Test
         @DisplayName("Should create task using context username")
         void createTask_WithUsername_Success() {
-            // 1. Setup DTO for this specific case (Clear the assignee to avoid the extra DB call)
             taskDTO.setAssignedUsername(null);
             taskDTO.setAssignedUserId(null);
 
-            // 2. Setup Mocks
             when(userRepository.findByUsername("ownerUser")).thenReturn(Optional.of(mockOwner));
             when(projectRepository.findById(10L)).thenReturn(Optional.of(mockProject));
             when(taskRepository.save(any(Task.class))).thenReturn(mockTask);
 
-            // 3. Execute
             TaskDTO result = taskService.createTask(taskDTO, "ownerUser");
 
-            // 4. Verify
             assertThat(result.getOwnerUsername()).isEqualTo("ownerUser");
             verify(userRepository, never()).findByUsername("assigneeUser");
         }
@@ -120,7 +118,7 @@ class TaskServiceTest {
                 when(authorizationService.canUpdateTaskStatus(any(), any())).thenReturn(true);
                 when(taskRepository.save(any())).thenReturn(mockTask);
 
-                TaskDTO result = taskService.updateTaskStatus(100L, TaskStatus.IN_PROGRESS, auth);
+                taskService.updateTaskStatus(100L, TaskStatus.IN_PROGRESS, auth);
 
                 assertThat(mockTask.getStatus()).isEqualTo(TaskStatus.IN_PROGRESS);
             }
@@ -164,6 +162,7 @@ class TaskServiceTest {
                 taskService.assignTaskToUserByUsername(100L, "assigneeUser");
 
                 assertThat(mockTask.getAssignedUser()).isEqualTo(mockAssignee);
+                verify(taskEventProducerService, times(1)).publishTaskAssignedEvent(any());
             }
         }
 
@@ -435,6 +434,7 @@ class TaskServiceTest {
 
             assertThat(result).isNotNull();
             assertThat(mockTask.getAssignedUser()).isEqualTo(mockAssignee);
+            verify(taskEventProducerService, times(1)).publishTaskAssignedEvent(any());
         }
 
         @Test
