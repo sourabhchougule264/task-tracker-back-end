@@ -174,6 +174,7 @@ public class TaskService {
         }
 
         Task updatedTask = taskRepository.save(task);
+        publishTaskAssignedEvent(updatedTask);
         return convertToDTO(updatedTask);
     }
 
