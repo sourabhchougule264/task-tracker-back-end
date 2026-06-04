@@ -140,17 +140,36 @@ jobs:
           rm .env
           
           bash /home/ubuntu/start_tunnel.sh
-
       - name: Health Check
         run: |
-          sleep 30
-          if docker exec tasktrackerapp curl -f http://localhost:8080/actuator/health > /dev/null 2>&1; then
-            echo "✅ Application is healthy"
-          else
-            echo "❌ Application health check failed"
-            docker logs tasktrackerapp | tail -50
-            exit 1
-          fi
+            echo "Waiting for tasktrackerapp to pass health checks..."
+            
+            # Retry loop parameters
+            ATTEMPTS=0
+            MAX_ATTEMPTS=12  # 12 attempts * 5 seconds = up to 60 seconds total wait time
+            TIMEOUT=5
+            
+            until [ $ATTEMPTS -ge $MAX_ATTEMPTS ]
+            do
+              echo "Checking application endpoint (Attempt $((ATTEMPTS+1))/$MAX_ATTEMPTS)..."
+            
+              # Execute curl within the container context
+              if docker exec tasktrackerapp curl -s -f http://localhost:8080/actuator/health > /dev/null 2>&1; then
+                echo "✅ Application is fully healthy and accepting traffic!"
+                break
+              fi
+            
+              ATTEMPTS=$((ATTEMPTS+1))
+              sleep $TIMEOUT
+            done
+            
+            # If the loop finished without breaking, the app failed to become healthy
+            if [ $ATTEMPTS -eq $MAX_ATTEMPTS ]; then
+              echo "❌ Application health check timed out after 60 seconds."
+              echo "Printing last 100 container lines for debugging:"
+              docker logs tasktrackerapp | tail -n 100
+              exit 1
+            fi
 
       - name: Verify Topic Creation
         run: |
