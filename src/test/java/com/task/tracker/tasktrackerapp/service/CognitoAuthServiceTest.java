@@ -32,19 +32,19 @@ class CognitoAuthServiceTest {
     @InjectMocks
     private CognitoAuthService cognitoAuthService;
 
-    private final String USER_POOL_ID = "us-east-1_testPool";
-    private final String CLIENT_ID = "testClientId";
-    private final String CLIENT_SECRET = "testClientSecret";
-    private final String USERNAME = "testuser";
-    private final String PASSWORD = "Password123!";
-    private final String EMAIL = "test@example.com";
+    private final String userPoolId = "us-east-1_testPool";
+    private final String clientId = "testClientId";
+    private final String clientSecret = "testClientSecret";
+    private final String username = "testuser";
+    private final String password = "Password123!";
+    private final String email = "test@example.com";
 
     @BeforeEach
     void setUp() {
         // Inject @Value fields manually since we aren't using a Spring Context
-        ReflectionTestUtils.setField(cognitoAuthService, "userPoolId", USER_POOL_ID);
-        ReflectionTestUtils.setField(cognitoAuthService, "clientId", CLIENT_ID);
-        ReflectionTestUtils.setField(cognitoAuthService, "clientSecret", CLIENT_SECRET);
+        ReflectionTestUtils.setField(cognitoAuthService, "userPoolId", userPoolId);
+        ReflectionTestUtils.setField(cognitoAuthService, "clientId", clientId);
+        ReflectionTestUtils.setField(cognitoAuthService, "clientSecret", clientSecret);
     }
 
     @Nested
@@ -68,7 +68,7 @@ class CognitoAuthServiceTest {
 
             when(cognitoClient.initiateAuth(any(InitiateAuthRequest.class))).thenReturn(response);
 
-            AuthResponse result = cognitoAuthService.authenticate(USERNAME, PASSWORD);
+            AuthResponse result = cognitoAuthService.authenticate(username, password);
 
             assertNotNull(result);
             assertEquals("access-token", result.getAccessToken());
@@ -81,7 +81,7 @@ class CognitoAuthServiceTest {
             when(cognitoClient.initiateAuth(any(InitiateAuthRequest.class)))
                     .thenThrow(NotAuthorizedException.builder().message("Invalid details").build());
 
-            assertThrows(RuntimeException.class, () -> cognitoAuthService.authenticate(USERNAME, PASSWORD));
+            assertThrows(RuntimeException.class, () -> cognitoAuthService.authenticate(username, password));
         }
 
         @Test
@@ -90,7 +90,7 @@ class CognitoAuthServiceTest {
             when(cognitoClient.initiateAuth(any(InitiateAuthRequest.class)))
                     .thenThrow(UserNotFoundException.builder().message("User does not exist").build());
 
-            RuntimeException exception = assertThrows(RuntimeException.class, () -> cognitoAuthService.authenticate(USERNAME, PASSWORD));
+            RuntimeException exception = assertThrows(RuntimeException.class, () -> cognitoAuthService.authenticate(username, password));
             assertEquals("User not found", exception.getMessage());
         }
 
@@ -100,7 +100,7 @@ class CognitoAuthServiceTest {
             when(cognitoClient.initiateAuth(any(InitiateAuthRequest.class)))
                     .thenThrow(new RuntimeException("Unexpected error"));
 
-            assertThrows(RuntimeException.class, () -> cognitoAuthService.authenticate(USERNAME, PASSWORD));
+            assertThrows(RuntimeException.class, () -> cognitoAuthService.authenticate(username, password));
         }
     }
 
@@ -113,7 +113,7 @@ class CognitoAuthServiceTest {
         void registerUser_Success() {
             when(cognitoClient.signUp(any(SignUpRequest.class))).thenReturn(SignUpResponse.builder().build());
 
-            cognitoAuthService.registerUser(USERNAME, PASSWORD, EMAIL);
+            cognitoAuthService.registerUser(username, password, email);
 
             verify(cognitoClient).signUp(any(SignUpRequest.class));
             verify(cognitoClient).adminAddUserToGroup(any(AdminAddUserToGroupRequest.class));
@@ -126,7 +126,7 @@ class CognitoAuthServiceTest {
                     .thenThrow(UsernameExistsException.builder().message("Username already exists").build());
 
             RuntimeException exception = assertThrows(RuntimeException.class,
-                    () -> cognitoAuthService.registerUser(USERNAME, PASSWORD, EMAIL));
+                    () -> cognitoAuthService.registerUser(username, password, email));
             assertEquals("Username already exists", exception.getMessage());
         }
 
@@ -137,7 +137,7 @@ class CognitoAuthServiceTest {
                     .thenThrow(InvalidPasswordException.builder().message("Password too weak").build());
 
             RuntimeException exception = assertThrows(RuntimeException.class,
-                    () -> cognitoAuthService.registerUser(USERNAME, PASSWORD, EMAIL));
+                    () -> cognitoAuthService.registerUser(username, password, email));
             assertTrue(exception.getMessage().contains("Invalid password"));
         }
 
@@ -147,7 +147,7 @@ class CognitoAuthServiceTest {
             when(cognitoClient.signUp(any(SignUpRequest.class)))
                     .thenThrow(new RuntimeException("Unexpected error"));
 
-            assertThrows(RuntimeException.class, () -> cognitoAuthService.registerUser(USERNAME, PASSWORD, EMAIL));
+            assertThrows(RuntimeException.class, () -> cognitoAuthService.registerUser(username, password, email));
         }
     }
 
@@ -158,7 +158,7 @@ class CognitoAuthServiceTest {
         @Test
         @DisplayName("Add User To Group - Success")
         void addUserToGroup_Success() {
-            cognitoAuthService.addUserToGroup(USERNAME, "ADMIN");
+            cognitoAuthService.addUserToGroup(username, "ADMIN");
 
             verify(cognitoClient).adminAddUserToGroup(any(AdminAddUserToGroupRequest.class));
         }
@@ -170,7 +170,7 @@ class CognitoAuthServiceTest {
                     .thenThrow(ResourceNotFoundException.builder().message("Group not found").build());
 
             RuntimeException exception = assertThrows(RuntimeException.class,
-                    () -> cognitoAuthService.addUserToGroup(USERNAME, "NONEXISTENT_GROUP"));
+                    () -> cognitoAuthService.addUserToGroup(username, "NONEXISTENT_GROUP"));
             assertTrue(exception.getMessage().contains("Group not found"));
         }
 
@@ -180,7 +180,7 @@ class CognitoAuthServiceTest {
             when(cognitoClient.adminAddUserToGroup(any(AdminAddUserToGroupRequest.class)))
                     .thenThrow(new RuntimeException("Unexpected error"));
 
-            assertThrows(RuntimeException.class, () -> cognitoAuthService.addUserToGroup(USERNAME, "ADMIN"));
+            assertThrows(RuntimeException.class, () -> cognitoAuthService.addUserToGroup(username, "ADMIN"));
         }
     }
 
@@ -191,7 +191,7 @@ class CognitoAuthServiceTest {
         @Test
         @DisplayName("Remove User From Group - Success")
         void removeUserFromGroup_Success() {
-            cognitoAuthService.removeUserFromGroup(USERNAME, "ADMIN");
+            cognitoAuthService.removeUserFromGroup(username, "ADMIN");
 
             verify(cognitoClient).adminRemoveUserFromGroup(any(AdminRemoveUserFromGroupRequest.class));
         }
@@ -202,7 +202,7 @@ class CognitoAuthServiceTest {
             when(cognitoClient.adminRemoveUserFromGroup(any(AdminRemoveUserFromGroupRequest.class)))
                     .thenThrow(new RuntimeException("Unexpected error"));
 
-            assertThrows(RuntimeException.class, () -> cognitoAuthService.removeUserFromGroup(USERNAME, "ADMIN"));
+            assertThrows(RuntimeException.class, () -> cognitoAuthService.removeUserFromGroup(username, "ADMIN"));
         }
     }
 
@@ -220,7 +220,7 @@ class CognitoAuthServiceTest {
 
             when(cognitoClient.adminListGroupsForUser(any(AdminListGroupsForUserRequest.class))).thenReturn(listResponse);
 
-            cognitoAuthService.replaceUserRole(USERNAME, "NEW_ROLE");
+            cognitoAuthService.replaceUserRole(username, "NEW_ROLE");
 
             verify(cognitoClient).adminRemoveUserFromGroup(any(AdminRemoveUserFromGroupRequest.class));
             verify(cognitoClient).adminAddUserToGroup(any(AdminAddUserToGroupRequest.class));
@@ -235,7 +235,7 @@ class CognitoAuthServiceTest {
 
             when(cognitoClient.adminListGroupsForUser(any(AdminListGroupsForUserRequest.class))).thenReturn(listResponse);
 
-            cognitoAuthService.replaceUserRole(USERNAME, "NEW_ROLE");
+            cognitoAuthService.replaceUserRole(username, "NEW_ROLE");
 
             verify(cognitoClient, never()).adminRemoveUserFromGroup(any(AdminRemoveUserFromGroupRequest.class));
             verify(cognitoClient).adminAddUserToGroup(any(AdminAddUserToGroupRequest.class));
@@ -252,7 +252,7 @@ class CognitoAuthServiceTest {
 
             when(cognitoClient.adminListGroupsForUser(any(AdminListGroupsForUserRequest.class))).thenReturn(listResponse);
 
-            cognitoAuthService.replaceUserRole(USERNAME, "VIEWER");
+            cognitoAuthService.replaceUserRole(username, "VIEWER");
 
             verify(cognitoClient, times(2)).adminRemoveUserFromGroup(any(AdminRemoveUserFromGroupRequest.class));
             verify(cognitoClient).adminAddUserToGroup(any(AdminAddUserToGroupRequest.class));
@@ -270,7 +270,7 @@ class CognitoAuthServiceTest {
             when(cognitoClient.adminAddUserToGroup(any(AdminAddUserToGroupRequest.class)))
                     .thenThrow(ResourceNotFoundException.builder().message("Group not found").build());
 
-            assertThrows(RuntimeException.class, () -> cognitoAuthService.replaceUserRole(USERNAME, "NONEXISTENT"));
+            assertThrows(RuntimeException.class, () -> cognitoAuthService.replaceUserRole(username, "NONEXISTENT"));
         }
 
         @Test
@@ -279,7 +279,7 @@ class CognitoAuthServiceTest {
             when(cognitoClient.adminListGroupsForUser(any(AdminListGroupsForUserRequest.class)))
                     .thenThrow(new RuntimeException("Unexpected error"));
 
-            assertThrows(RuntimeException.class, () -> cognitoAuthService.replaceUserRole(USERNAME, "NEW_ROLE"));
+            assertThrows(RuntimeException.class, () -> cognitoAuthService.replaceUserRole(username, "NEW_ROLE"));
         }
 
         @Test
@@ -290,7 +290,7 @@ class CognitoAuthServiceTest {
 
             when(cognitoClient.adminListGroupsForUser(any(AdminListGroupsForUserRequest.class))).thenReturn(response);
 
-            List<String> groups = cognitoAuthService.getUserGroups(USERNAME);
+            List<String> groups = cognitoAuthService.getUserGroups(username);
 
             assertEquals(1, groups.size());
             assertEquals("ADMIN", groups.get(0));
@@ -302,7 +302,7 @@ class CognitoAuthServiceTest {
             when(cognitoClient.adminListGroupsForUser(any(AdminListGroupsForUserRequest.class)))
                     .thenThrow(UserNotFoundException.builder().message("User not found").build());
 
-            List<String> groups = cognitoAuthService.getUserGroups(USERNAME);
+            List<String> groups = cognitoAuthService.getUserGroups(username);
 
             assertTrue(groups.isEmpty());
         }
@@ -313,7 +313,7 @@ class CognitoAuthServiceTest {
             when(cognitoClient.adminListGroupsForUser(any(AdminListGroupsForUserRequest.class)))
                     .thenThrow(new RuntimeException("Unexpected error"));
 
-            List<String> groups = cognitoAuthService.getUserGroups(USERNAME);
+            List<String> groups = cognitoAuthService.getUserGroups(username);
 
             assertTrue(groups.isEmpty());
         }
@@ -327,7 +327,7 @@ class CognitoAuthServiceTest {
 
             when(cognitoClient.adminListGroupsForUser(any(AdminListGroupsForUserRequest.class))).thenReturn(response);
 
-            List<String> groups = cognitoAuthService.getUserGroups(USERNAME);
+            List<String> groups = cognitoAuthService.getUserGroups(username);
 
             assertTrue(groups.isEmpty());
         }
@@ -376,7 +376,7 @@ class CognitoAuthServiceTest {
         @Test
         @DisplayName("Confirm User Registration - Success")
         void confirmUserRegistration_Success() {
-            cognitoAuthService.confirmUserRegistration(USERNAME, "123456");
+            cognitoAuthService.confirmUserRegistration(username, "123456");
 
             verify(cognitoClient).confirmSignUp(any(ConfirmSignUpRequest.class));
         }
@@ -387,7 +387,7 @@ class CognitoAuthServiceTest {
             when(cognitoClient.confirmSignUp(any(ConfirmSignUpRequest.class)))
                     .thenThrow(new RuntimeException("Confirmation failed"));
 
-            assertThrows(RuntimeException.class, () -> cognitoAuthService.confirmUserRegistration(USERNAME, "123456"));
+            assertThrows(RuntimeException.class, () -> cognitoAuthService.confirmUserRegistration(username, "123456"));
         }
     }
 
@@ -398,7 +398,7 @@ class CognitoAuthServiceTest {
         @Test
         @DisplayName("Delete User - Success")
         void deleteUser_Success() {
-            cognitoAuthService.deleteUser(USERNAME);
+            cognitoAuthService.deleteUser(username);
 
             verify(cognitoClient).adminDeleteUser(any(AdminDeleteUserRequest.class));
         }
@@ -409,7 +409,7 @@ class CognitoAuthServiceTest {
             when(cognitoClient.adminDeleteUser(any(AdminDeleteUserRequest.class)))
                     .thenThrow(new RuntimeException("Deletion failed"));
 
-            assertThrows(RuntimeException.class, () -> cognitoAuthService.deleteUser(USERNAME));
+            assertThrows(RuntimeException.class, () -> cognitoAuthService.deleteUser(username));
         }
     }
 
@@ -495,7 +495,7 @@ class CognitoAuthServiceTest {
         @Test
         @DisplayName("Forgot Password - Success")
         void forgotPassword_Success() {
-            cognitoAuthService.forgotPassword(USERNAME);
+            cognitoAuthService.forgotPassword(username);
             verify(cognitoClient).forgotPassword(any(ForgotPasswordRequest.class));
         }
 
@@ -506,7 +506,7 @@ class CognitoAuthServiceTest {
                     .thenThrow(UserNotFoundException.builder().message("User not found").build());
 
             RuntimeException exception = assertThrows(RuntimeException.class,
-                    () -> cognitoAuthService.forgotPassword(USERNAME));
+                    () -> cognitoAuthService.forgotPassword(username));
             assertEquals("User not found", exception.getMessage());
         }
 
@@ -516,13 +516,13 @@ class CognitoAuthServiceTest {
             when(cognitoClient.forgotPassword(any(ForgotPasswordRequest.class)))
                     .thenThrow(new RuntimeException("Unexpected error"));
 
-            assertThrows(RuntimeException.class, () -> cognitoAuthService.forgotPassword(USERNAME));
+            assertThrows(RuntimeException.class, () -> cognitoAuthService.forgotPassword(username));
         }
 
         @Test
         @DisplayName("Confirm Forgot Password - Success")
         void confirmForgotPassword_Success() {
-            cognitoAuthService.confirmForgotPassword(USERNAME, "123456", "NewPassword123!");
+            cognitoAuthService.confirmForgotPassword(username, "123456", "NewPassword123!");
             verify(cognitoClient).confirmForgotPassword(any(ConfirmForgotPasswordRequest.class));
         }
 
@@ -533,7 +533,7 @@ class CognitoAuthServiceTest {
                     .thenThrow(CodeMismatchException.builder().message("Invalid code").build());
 
             RuntimeException exception = assertThrows(RuntimeException.class,
-                    () -> cognitoAuthService.confirmForgotPassword(USERNAME, "invalid-code", "NewPassword123!"));
+                    () -> cognitoAuthService.confirmForgotPassword(username, "invalid-code", "NewPassword123!"));
             assertEquals("Invalid confirmation code", exception.getMessage());
         }
 
@@ -544,7 +544,7 @@ class CognitoAuthServiceTest {
                     .thenThrow(ExpiredCodeException.builder().message("Code expired").build());
 
             RuntimeException exception = assertThrows(RuntimeException.class,
-                    () -> cognitoAuthService.confirmForgotPassword(USERNAME, "expired-code", "NewPassword123!"));
+                    () -> cognitoAuthService.confirmForgotPassword(username, "expired-code", "NewPassword123!"));
             assertEquals("Confirmation code has expired", exception.getMessage());
         }
 
@@ -555,7 +555,7 @@ class CognitoAuthServiceTest {
                     .thenThrow(new RuntimeException("Unexpected error"));
 
             assertThrows(RuntimeException.class,
-                    () -> cognitoAuthService.confirmForgotPassword(USERNAME, "123456", "NewPassword123!"));
+                    () -> cognitoAuthService.confirmForgotPassword(username, "123456", "NewPassword123!"));
         }
     }
 }

@@ -15,8 +15,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -109,21 +109,21 @@ public class TaskService {
     public List<TaskDTO> getAllTasks() {
         return taskRepository.findAll().stream()
                 .map(this::convertToDTO)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Transactional(readOnly = true)
     public List<TaskDTO> getTasksByProject(Long projectId) {
         return taskRepository.findByProjectId(projectId).stream()
                 .map(this::convertToDTO)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Transactional(readOnly = true)
     public List<TaskDTO> getTasksByAssignedUser(Long userId) {
         return taskRepository.findByAssignedUserId(userId).stream()
                 .map(this::convertToDTO)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -132,14 +132,14 @@ public class TaskService {
                 .orElseThrow(() -> new RuntimeException("User not found with username: " + username));
         return taskRepository.findByAssignedUserId(user.getId()).stream()
                 .map(this::convertToDTO)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Transactional(readOnly = true)
     public List<TaskDTO> getTasksByStatus(TaskStatus status) {
         return taskRepository.findByStatus(status).stream()
                 .map(this::convertToDTO)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Transactional
@@ -273,7 +273,7 @@ public class TaskService {
                 .projectId(task.getProject() != null ? task.getProject().getId() : null)
                 .projectName(task.getProject() != null ? task.getProject().getName() : null)
                 .dueDate(task.getDueDate() != null ? task.getDueDate().toString() : null)
-                .timestamp(LocalDateTime.now())
+                .timestamp(LocalDateTime.now(ZoneId.systemDefault()))
                 .build();
 
         taskEventProducerService.publishTaskAssignedEvent(event);

@@ -236,7 +236,7 @@ public class CognitoAuthService {
 
             return listResponse.groups().stream()
                     .map(GroupType::groupName)
-                    .collect(Collectors.toList());
+                    .toList();
 
         } catch (UserNotFoundException e) {
             log.warn("User {} not found in Cognito when fetching groups", username);

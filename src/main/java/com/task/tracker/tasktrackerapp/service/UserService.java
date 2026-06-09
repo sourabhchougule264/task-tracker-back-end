@@ -66,11 +66,11 @@ public class UserService {
      */
     @Transactional
     public UserDTO createUserProfile(UserDTO userDTO) {
-        if (userRepository.existsByUsername(userDTO.getUsername())) {
+        if (Boolean.TRUE.equals(userRepository.existsByUsername(userDTO.getUsername()))) {
             throw new RuntimeException("Username already exists: " + userDTO.getUsername());
         }
 
-        if (userRepository.existsByEmail(userDTO.getEmail())) {
+        if (Boolean.TRUE.equals(userRepository.existsByEmail(userDTO.getEmail()))) {
             throw new RuntimeException("Email already exists: " + userDTO.getEmail());
         }
 
@@ -116,7 +116,7 @@ public class UserService {
                     }
                     return dto;
                 })
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Transactional
@@ -126,13 +126,13 @@ public class UserService {
 
         // Check if username is being changed and if it already exists
         if (!user.getUsername().equals(userDTO.getUsername()) &&
-            userRepository.existsByUsername(userDTO.getUsername())) {
+            Boolean.TRUE.equals(userRepository.existsByUsername(userDTO.getUsername()))) {
             throw new RuntimeException("Username already exists: " + userDTO.getUsername());
         }
 
         // Check if email is being changed and if it already exists
         if (!user.getEmail().equals(userDTO.getEmail()) &&
-            userRepository.existsByEmail(userDTO.getEmail())) {
+                Boolean.TRUE.equals(userRepository.existsByEmail(userDTO.getEmail()))) {
             throw new RuntimeException("Email already exists: " + userDTO.getEmail());
         }
 
