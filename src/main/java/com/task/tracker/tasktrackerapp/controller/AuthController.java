@@ -287,19 +287,7 @@ public class AuthController {
             );
             log.info("User {} registered in Cognito successfully", request.getUsername());
 
-            // Create user record in database
-            try {
-                userService.syncUserFromCognito(
-                        request.getUsername(),
-                        request.getEmail(),
-                        null  // cognitoSub will be updated after first login
-                );
-                log.info("User {} saved to database successfully", request.getUsername());
-            } catch (Exception dbException) {
-                log.error("Failed to save user {} to database: {}", request.getUsername(), dbException.getMessage(), dbException);
-                // User is registered in Cognito, but failed to save to database
-                // We continue anyway and let them confirm and login
-            }
+            createUserRecordInDB(request);
 
             log.info("User {} registration process completed", request.getUsername());
 
@@ -310,6 +298,22 @@ public class AuthController {
         } catch (Exception e) {
             log.error("Registration failed for user {}: {}", request.getUsername(), e.getMessage(), e);
             throw new RuntimeException("Registration failed: " + e.getMessage());
+        }
+    }
+
+    private void createUserRecordInDB(AuthRequest request) {
+        // Create user record in database
+        try {
+            userService.syncUserFromCognito(
+                    request.getUsername(),
+                    request.getEmail(),
+                    null  // cognitoSub will be updated after first login
+            );
+            log.info("User {} saved to database successfully", request.getUsername());
+        } catch (Exception dbException) {
+            log.error("Failed to save user {} to database: {}", request.getUsername(), dbException.getMessage(), dbException);
+            // User is registered in Cognito, but failed to save to database
+            // We continue anyway and let them confirm and login
         }
     }
 

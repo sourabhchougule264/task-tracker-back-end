@@ -61,7 +61,7 @@ class EmailServiceTest {
         when(mockEvent.getTaskId()).thenReturn(123L);
         when(mockEvent.getTaskDescription()).thenReturn("Short Description");
         when(mockEvent.getProjectName()).thenReturn("Project Alpha");
-        when(mockEvent.getDueDate()).thenReturn(String.valueOf(LocalDate.now()));
+        when(mockEvent.getDueDate()).thenReturn(String.valueOf(LocalDate.parse("2026-05-07")));
         when(mockEvent.getAssignedUsername()).thenReturn("JohnDoe");
         when(mockEvent.getOwnerUsername()).thenReturn("JaneSmith");
 

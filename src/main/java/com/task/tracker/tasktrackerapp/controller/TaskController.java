@@ -23,7 +23,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/tasks")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 @Tag(name = "Task Management API", description = "APIs for managing tasks in the Task Tracker application")
 public class TaskController {
 

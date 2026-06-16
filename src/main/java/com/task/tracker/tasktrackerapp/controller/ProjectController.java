@@ -22,7 +22,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/projects")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 @Tag(name = "Project Management", description = "APIs for managing projects in the Task Tracker application")
 public class ProjectController {
 

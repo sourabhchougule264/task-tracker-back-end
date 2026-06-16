@@ -51,8 +51,8 @@ class ProjectServiceTest {
                 .id(100L)
                 .name("Test Project")
                 .description("Sample Description")
-                .startDate(LocalDate.now())
-                .endDate(LocalDate.now().plusMonths(1))
+                .startDate(LocalDate.parse("2026-05-07"))
+                .endDate(LocalDate.parse("2026-05-07").plusMonths(1))
                 .owner(mockOwner)
                 .build();
 
@@ -60,8 +60,8 @@ class ProjectServiceTest {
                 .id(100L)
                 .name("Test Project")
                 .description("Sample Description")
-                .startDate(LocalDate.now())
-                .endDate(LocalDate.now().plusMonths(1))
+                .startDate(LocalDate.parse("2026-05-07"))
+                .endDate(LocalDate.parse("2026-05-07").plusMonths(1))
                 .ownerId(1L)
                 .build();
     }

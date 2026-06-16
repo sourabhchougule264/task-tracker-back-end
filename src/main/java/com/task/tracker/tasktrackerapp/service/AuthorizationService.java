@@ -121,23 +121,6 @@ public class AuthorizationService {
         return false;
     }
 
-    /**
-     * Check if user can delete a project
-     * ADMIN: Yes (any project)
-     * TASK_CREATOR: Yes (only projects they own)
-     * READ_ONLY: No
-     */
-    public boolean canDeleteProject(Long projectId, Authentication authentication) {
-        if (isAdmin(authentication)) {
-            return true;
-        }
-        if (isTaskCreator(authentication)) {
-            String username = getUsernameFromAuth(authentication);
-            return isProjectOwner(projectId, username);
-        }
-        return false;
-    }
-
     // ==================== TASK PERMISSIONS ====================
 
     /**

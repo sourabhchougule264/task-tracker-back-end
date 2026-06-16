@@ -145,7 +145,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     @Test
     @DisplayName("PUT /users/{id} - Success as Owner")
     @WithMockUser(roles = "ADMIN")
-    @Disabled
+    @Disabled("Code issues for user test")
     void updateUser_OwnerSuccess() throws Exception {
         String subClaim = "0133fd5a-b001-700b-cadb-31587fd2d95c";
         UserDTO userDTO1 = new UserDTO();
