@@ -45,8 +45,6 @@ public class KafkaConfig {
     @Value("${kafka.consumer.session-timeout-ms:30000}")
     private Integer sessionTimeoutMs;
 
-    @Value("${spring.kafka.enabled:true}")
-    private boolean kafkaEnabled;
 
     /**
      * Kafka Producer Configuration for TaskAssignedEvent
